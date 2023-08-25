@@ -1,0 +1,26 @@
+name: Build on Windows
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up MSYS2
+      uses: shayne/msys2-mingw64@v3
+
+    - name: Install dependencies
+      run: |
+        pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-make mingw-w64-x86_64-python3 mingw-w64-x86_64-python3-pip -y
+        pip3 install cmake
+
+    - name: Build project
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        make
