@@ -13,13 +13,6 @@ jobs:
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
 
-    - name: Install dependencies
-      run: |
-        pacman -S --needed --noconfirm base-devel mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_ttf
-
     - name: Build project
       run: |
-        mkdir build
-        cd build
-        cmake ..
         make
