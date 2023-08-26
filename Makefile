@@ -25,7 +25,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: $(ASMDIR)/%.asm
-	mkdir -p $(OBJDIR)
 	as --64 $< -o $@
 
 clean:
