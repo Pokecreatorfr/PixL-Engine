@@ -16,12 +16,12 @@ all: include_ressources $(TARGET)
 
 include_ressources:
 	python include_ressources.py
+	mkdir -p $(OBJDIR)
 
 $(TARGET): $(OBJS) $(ASMOBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) $(ASMOBJS) $(LIBS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
-	mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: $(ASMDIR)/%.asm
