@@ -21,6 +21,9 @@ def generate_files():
     asm_dir = 'asm'
     include_dir = 'include'
 
+    if not os.path.exists(asm_dir):
+        os.makedirs(asm_dir)
+
     image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.bmp'))]
 
     with open(os.path.join(asm_dir, 'graphic.asm'), 'w') as asm_file:
