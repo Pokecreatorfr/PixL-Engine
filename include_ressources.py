@@ -25,7 +25,7 @@ def generate_files():
         os.makedirs(asm_dir)
         print(f'Created folder: {asm_dir}')
 
-    print(f'Processed {len(image_files)} images and wrote to graphic.asm')
+    
 
     image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.bmp'))]
 
@@ -34,7 +34,8 @@ def generate_files():
             asm_entry = ".section rodata\n\n"
             asm_entry += generate_asm_image_entry(os.path.join(image_dir, image).replace("\\","/"))
             asm_file.write(asm_entry)
-            
+
+    print(f'Processed {len(image_files)} images and wrote to graphic.asm')
 
     with open(os.path.join(include_dir, 'imagetocpp.hpp'), 'w') as hpp_file:
         hpp_file.write('#pragma once\n')
