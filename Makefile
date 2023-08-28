@@ -15,17 +15,22 @@ TARGET = main
 all: include_ressources $(TARGET)
 
 include_ressources:
-	python include_ressources.py
-	mkdir -p $(OBJDIR)
+	@echo "Running include_ressources..."
+	@python include_ressources.py
+	@mkdir -p $(OBJDIR)
 
 $(TARGET): $(OBJS) $(ASMOBJS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(ASMOBJS) $(LIBS)
+	@echo "Linking $(TARGET)..."
+	@$(CC) $(CFLAGS) -o $@ $(OBJS) $(ASMOBJS) $(LIBS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+	@echo "Compiling $<..."
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/%.o: $(ASMDIR)/%.asm
-	as --64 $< -o $@
+	@echo "Assembling $<..."
+	@as --64 $< -o $@
 
 clean:
-	rm -f $(OBJS) $(ASMOBJS) $(TARGET)
+	@echo "Cleaning..."
+	@rm -f $(OBJS) $(ASMOBJS) $(TARGET)
