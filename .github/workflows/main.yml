@@ -20,7 +20,7 @@ jobs:
     - name: Save artifacts
       run: |
         mkdir -p artifacts
-        cp -r * artifacts/
+        cp -r --exclude=artifacts/* * artifacts/
       # Pour conserver le contenu généré dans les artifacts, y compris le répertoire "artifacts"
       if: always()
 
