@@ -17,20 +17,9 @@ jobs:
       run: |
         make
 
-    - name: Save artifacts
-      run: |
-        mkdir -p artifacts
-        for item in *; do
-          if [ "$item" != "artifacts" ]; then
-            cp -r "$item" artifacts/
-          fi
-        done
-      # Pour conserver le contenu généré dans les artifacts, y compris le répertoire "artifacts"
-      if: always()
 
-    - name: Upload Artifacts
+    - name: Archive repository
       uses: actions/upload-artifact@v2
       with:
-        name: my-artifacts
-        path: artifacts
-      if: always()
+        name: repository-artifact
+        path: .  # This archives the entire repository
