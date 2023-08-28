@@ -22,9 +22,11 @@ jobs:
         mkdir -p artifacts
         cp -r * artifacts/
       # Pour conserver le contenu généré dans les artifacts, y compris le répertoire "artifacts"
+      if: always()
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
       with:
         name: my-artifacts
         path: artifacts
+      if: always()
