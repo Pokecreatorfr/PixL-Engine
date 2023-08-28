@@ -3,6 +3,6 @@
 *.o
 *.out
 obj/
+asm/
 
-
-
+include/imagetocpp.hpp
