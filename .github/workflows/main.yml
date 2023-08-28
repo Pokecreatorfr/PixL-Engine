@@ -22,7 +22,7 @@ jobs:
         mkdir -p artifacts
         for item in *; do
           if [ "$item" != "artifacts" ]; then
-            cp -r "$item" artifacts_temp/
+            cp -r "$item" artifacts/
           fi
         done
       # Pour conserver le contenu généré dans les artifacts, y compris le répertoire "artifacts"
