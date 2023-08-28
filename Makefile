@@ -1,6 +1,16 @@
-CC = g++
+ifeq ($(OS),Windows_NT)
+	CC = g++
+	AS = as
+else ifeq ($(shell uname -s),Linux)
+	CC = x86_64-w64-mingw32-g++
+	AS = x86_64-w64-mingw32-as
+
+endif
+
 CFLAGS = -Iinclude -Llib
 LIBS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_image
+
+
 
 SRCDIR = src
 OBJDIR = obj
@@ -21,7 +31,7 @@ include_ressources:
 
 $(ASMOBJS): $(OBJDIR)/%.o: $(ASMDIR)/%.asm
 	@echo "Assembling $<..."
-	@as --64 $< -o $@
+	@$(AS) --64 $< -o $@
 
 $(TARGET): $(OBJS) $(ASMOBJS)
 	@echo "Linking $(TARGET)..."

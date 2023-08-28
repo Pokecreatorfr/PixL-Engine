@@ -1,6 +1,7 @@
 *.png
 *.exe
 *.o
+*.out
 obj/
 asm/
 
