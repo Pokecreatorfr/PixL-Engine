@@ -16,11 +16,3 @@ jobs:
     - name: Build project
       run: |
         make
-
-
-    - name: Archive repository
-      uses: actions/upload-artifact@v2
-      with:
-        name: repository-artifact
-        path: .  # This archives the entire repository
-      if: always()
