@@ -7,8 +7,8 @@ else ifeq ($(shell uname -s),Linux)
 
 endif
 
-CFLAGS = -Iinclude -Llib
-LIBS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_image
+CFLAGS = -Iinclude -Llib -O3
+LIBS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -mwindows -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lversion -luuid -static-libgcc -static-libstdc++  
 
 
 
