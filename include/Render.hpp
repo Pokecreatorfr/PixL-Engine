@@ -1,16 +1,21 @@
 #pragma once
+#include <weather.hpp>
 #include <vector>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stdio.h>
 #include <string>
 #include <iostream>
-#include <Config.hpp>
+#include <const/Config.hpp>
 #include <Graphics.hpp>
 #include <cmath>
+#include <particle.hpp>
+#include <const/Weather_Index.hpp>
+#include <Log.hpp>
 
 using namespace std;
 
+class Weather;
 
 struct Camera
 {
@@ -71,11 +76,14 @@ class World_Renderer
 		void Draw(Tileset* tileset);
 		void update();
 		void load_tileset(const char* file_path, SDL_Renderer* renderer, int tile_width, int tile_height);
+		void load_weather(int weather_index);
+		void unload_weather();
 	private:
 		bool check_visibility(coord_2d position, coord_2d size, Camera camera);
 		World* world;
 		Map_Renderer* Map_Renderers[5] = { nullptr, nullptr , nullptr , nullptr };
 		Camera* camera;
+		Weather* weather;
 };
 
 class Sine_Wave_Generator
@@ -88,4 +96,22 @@ class Sine_Wave_Generator
 		int frequency;
 		int phase;
 		vector<float> wave;
+};
+
+class Weather
+{
+    public:
+        Weather(Camera* cam, int weather_index);
+        void Draw();
+        void Update();
+    private:
+        SDL_Texture* texture;
+        Camera* camera;
+        int weather_index;
+        vector<Particle> particles;
+		Logger logger;
+		int camx;
+		int camy;
+		int posx;
+		int posy;
 };

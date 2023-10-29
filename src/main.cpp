@@ -2,7 +2,7 @@
 #include <Render.hpp>
 #include <maptocpp.hpp>
 #include <imagetocpp.hpp>
-#include <Config.hpp>
+#include <const/Config.hpp>
 
 using namespace std;
 using namespace std::chrono;
@@ -52,7 +52,8 @@ int main(int argc, char* argv[])
 	Camera camera = { {0,0}, renderer , {0,0}, 1 };
 
 	World_Renderer *world_renderer = new World_Renderer(&world_world, &camera);
-
+	camera.Get_View_Size(window);
+	world_renderer->load_weather(0);
 	
 	while (running)
 	{

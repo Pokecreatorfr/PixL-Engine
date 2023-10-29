@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string>
 #include <iostream>
-#include <Config.hpp>
+#include <const/Config.hpp>
 
 using namespace std;
 
@@ -41,3 +41,4 @@ struct Tileset
 };
 
 Tileset* Load_Tileset(image_ressource image_ressource, SDL_Renderer* renderer , int tile_width, int tile_height);
+SDL_Texture* Load_Texture(image_ressource image_ressource, SDL_Renderer* renderer);

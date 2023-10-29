@@ -66,6 +66,10 @@ void World_Renderer::Draw(Tileset* tileset)
 			Map_Renderers[i]->Draw(tileset);
 		}
 	}
+	if (weather != nullptr)
+	{
+		weather->Draw();
+	}
 }
 
 void World_Renderer::update()
@@ -121,10 +125,27 @@ void World_Renderer::update()
 			
 		}
 	}
+
+	// update weather
+	if (weather != nullptr)
+	{
+		weather->Update();
+	}
 }
 
 void World_Renderer::load_tileset(const char* file_path, SDL_Renderer* renderer, int tile_width, int tile_height)
 {
+}
+
+void World_Renderer::load_weather(int weather_index)
+{
+	weather = new Weather(camera, weather_index);
+}
+
+void World_Renderer::unload_weather()
+{
+	weather->~Weather();
+	weather = nullptr;
 }
 
 bool World_Renderer::check_visibility(coord_2d position, coord_2d size, Camera camera)
@@ -198,4 +219,94 @@ vector<float> Sine_Wave_Generator::get_value(int x)
 		wave[i] = sin(M_PI * x * frequency + phase) * amplitude;
 	}
 	return wave;
+}
+
+Weather::Weather(Camera* cam, int weather_index)
+{
+    this->camera = cam;
+    this->weather_index = weather_index;
+	camx = cam->size.x;
+	camy = cam->size.y;
+	posx = cam->position.x;
+	posy = cam->position.y;
+    switch (weather_index)
+    {
+    case WEATHER_SNOW:
+        this->texture = Load_Texture(snow0_ressource, camera->renderer);
+		
+		for (int i = 0; i < 100; i++)
+        {
+            Particle particle;
+			
+            particle.posx = rand() % camera->size.x;
+            particle.posy = rand() % camera->size.y;
+			
+            particles.push_back(particle);
+        }
+
+        break;
+    default:
+        break;
+    }
+}
+
+void Weather::Draw()
+{
+    for (int i = 0; i < particles.size(); i++)
+    {
+        SDL_Rect rect;
+        rect.x = particles[i].posx;
+        rect.y = particles[i].posy;
+        rect.w = 8 * camera->zoom;
+        rect.h = 8 * camera->zoom;
+        SDL_RenderCopy(camera->renderer, texture, NULL, &rect);
+    }
+}
+
+void Weather::Update()
+{
+    switch (weather_index)
+    {
+    case WEATHER_SNOW:
+		// check if camera size has changed
+		if (camx != camera->size.x || camy != camera->size.y)
+		{
+			camx = camera->size.x;
+			camy = camera->size.y;
+			// update particles position
+			for (int i = 0; i < particles.size(); i++)
+			{
+				particles[i].posx = rand() % camera->size.x;
+				particles[i].posy = rand() % camera->size.y;
+			}
+		}
+		// check if camera position has changed
+		if (posx != camera->position.x || posy != camera->position.y)
+		{
+			for (int i = 0; i < particles.size(); i++)
+			{
+				particles[i].posx -= camera->position.x - posx;
+				particles[i].posy -= camera->position.y - posy;
+			}
+			posx = camera->position.x;
+			posy = camera->position.y;
+		}
+        for (int i = 0; i < particles.size(); i++)
+        {
+            // generate random number int between -2 and 2
+            particles[i].posx += rand() % 5 - 2;
+            particles[i].posy +=  rand() % 2 ;
+			if (particles[i].posy > camera->size.y * camera->zoom || particles[i].posy < 0)
+			{
+				particles[i].posy = rand() % (int)(camera->size.y * camera->zoom);
+			}
+			if (particles[i].posx > camera->size.x * camera->zoom || particles[i].posx < 0)
+			{
+				particles[i].posx = rand() % (int)(camera->size.x * camera->zoom);
+			}
+        }
+        break;
+    default:
+        break;
+    }
 }
