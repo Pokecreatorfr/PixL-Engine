@@ -1,5 +1,4 @@
 #pragma once
-#include <weather.hpp>
 #include <vector>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -10,7 +9,8 @@
 #include <Graphics.hpp>
 #include <cmath>
 #include <particle.hpp>
-#include <const/Weather_Index.hpp>
+#include <const/weather_index.hpp>
+#include <imagetocpp.hpp>
 #include <Log.hpp>
 
 using namespace std;

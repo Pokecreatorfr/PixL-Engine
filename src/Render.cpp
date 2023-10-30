@@ -234,7 +234,7 @@ Weather::Weather(Camera* cam, int weather_index)
     case WEATHER_SNOW:
         this->texture = Load_Texture(snow0_ressource, camera->renderer);
 		
-		for (int i = 0; i < 100; i++)
+		for (int i = 0; i < 1000; i++)
         {
             Particle particle;
 			
@@ -254,12 +254,11 @@ void Weather::Draw()
 {
     for (int i = 0; i < particles.size(); i++)
     {
-        SDL_Rect rect;
-        rect.x = particles[i].posx;
-        rect.y = particles[i].posy;
-        rect.w = 8 * camera->zoom;
-        rect.h = 8 * camera->zoom;
-        SDL_RenderCopy(camera->renderer, texture, NULL, &rect);
+        particles[i].rect.x = particles[i].posx;
+        particles[i].rect.y = particles[i].posy;
+        particles[i].rect.w = 8 * camera->zoom;
+        particles[i].rect.h = 8 * camera->zoom;
+        SDL_RenderCopy(camera->renderer, texture, NULL, &particles[i].rect);
     }
 }
 
@@ -293,17 +292,26 @@ void Weather::Update()
 		}
         for (int i = 0; i < particles.size(); i++)
         {
-            // generate random number int between -2 and 2
-            particles[i].posx += rand() % 5 - 2;
+            // generate random number int between 0 and -2
+            particles[i].posx += rand() % 2 - 2;
             particles[i].posy +=  rand() % 2 ;
-			if (particles[i].posy > camera->size.y * camera->zoom || particles[i].posy < 0)
+			if (particles[i].posy > camera->size.y)
 			{
-				particles[i].posy = rand() % (int)(camera->size.y * camera->zoom);
+				particles[i].posy = 0;
 			}
-			if (particles[i].posx > camera->size.x * camera->zoom || particles[i].posx < 0)
+			else if (particles[i].posy < 0)
 			{
-				particles[i].posx = rand() % (int)(camera->size.x * camera->zoom);
+				particles[i].posy = camera->size.y;
 			}
+			if (particles[i].posx > camera->size.x)
+			{
+				particles[i].posx = 0;
+			}
+			else if (particles[i].posx < 0)
+			{
+				particles[i].posx = camera->size.x;
+			}
+			
         }
         break;
     default:
