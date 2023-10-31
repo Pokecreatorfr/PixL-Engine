@@ -68,6 +68,8 @@ class Map_Renderer
 		coord_2d size;
 };
 
+bool check_visibility(coord_2d position, coord_2d size, Camera camera);
+
 class World_Renderer
 {
 	public:
@@ -79,7 +81,6 @@ class World_Renderer
 		void load_weather(int weather_index);
 		void unload_weather();
 	private:
-		bool check_visibility(coord_2d position, coord_2d size, Camera camera);
 		World* world;
 		Map_Renderer* Map_Renderers[5] = { nullptr, nullptr , nullptr , nullptr };
 		Camera* camera;

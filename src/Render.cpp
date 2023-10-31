@@ -148,7 +148,7 @@ void World_Renderer::unload_weather()
 	weather = nullptr;
 }
 
-bool World_Renderer::check_visibility(coord_2d position, coord_2d size, Camera camera)
+bool check_visibility(coord_2d position, coord_2d size, Camera camera)
 {
 	float camsx = camera.size.x / 2;
 	float camsy = camera.size.y / 2;
@@ -238,8 +238,9 @@ Weather::Weather(Camera* cam, int weather_index)
         {
             Particle particle;
 			
-            particle.posx = rand() % camera->size.x;
-            particle.posy = rand() % camera->size.y;
+			// apear randomly on the screen + 0.5 * screen size
+			particle.posx = rand() % (camera->size.x * 2) - camera->size.x / 2;
+			particle.posy = rand() % (camera->size.y * 2) - camera->size.y / 2;
 			
             particles.push_back(particle);
         }
@@ -254,8 +255,8 @@ void Weather::Draw()
 {
     for (int i = 0; i < particles.size(); i++)
     {
-        particles[i].rect.x = particles[i].posx;
-        particles[i].rect.y = particles[i].posy;
+        particles[i].rect.x = particles[i].posx * camera->zoom;
+        particles[i].rect.y = particles[i].posy * camera->zoom;
         particles[i].rect.w = 8 * camera->zoom;
         particles[i].rect.h = 8 * camera->zoom;
         SDL_RenderCopy(camera->renderer, texture, NULL, &particles[i].rect);
@@ -275,8 +276,9 @@ void Weather::Update()
 			// update particles position
 			for (int i = 0; i < particles.size(); i++)
 			{
-				particles[i].posx = rand() % camera->size.x;
-				particles[i].posy = rand() % camera->size.y;
+				// apear randomly on the screen + 0.5 * screen size
+				particles[i].posx = rand() % (camera->size.x * 2) - camera->size.x / 2;
+				particles[i].posy = rand() % (camera->size.y * 2) - camera->size.y / 2;
 			}
 		}
 		// check if camera position has changed
@@ -295,21 +297,25 @@ void Weather::Update()
             // generate random number int between 0 and -2
             particles[i].posx += rand() % 2 - 2;
             particles[i].posy +=  rand() % 2 ;
-			if (particles[i].posy > camera->size.y)
+			if (particles[i].posy > camera->size.y * 1.5)
 			{
-				particles[i].posy = 0;
+				// apear randomly on the top of the screen
+				particles[i].posy = rand() % (camera->size.y/5) - camera->size.y/2;
 			}
-			else if (particles[i].posy < 0)
+			else if (particles[i].posy < 0 - camera->size.y / 2)
 			{
-				particles[i].posy = camera->size.y;
+				// apear randomly on the bottom of the screen
+				particles[i].posy = camera->size.y + rand() % (camera->size.y/2);
 			}
-			if (particles[i].posx > camera->size.x)
+			if (particles[i].posx > camera->size.x * 1.5)
 			{
-				particles[i].posx = 0;
+				// apear randomly on the left side of the screen ( not visible part )
+				particles[i].posx =  0 - rand() % (camera->size.x/2) ;
 			}
-			else if (particles[i].posx < 0)
+			else if (particles[i].posx < 0 - camera->size.x / 2)
 			{
-				particles[i].posx = camera->size.x;
+				// apear randomly on the right side of the screen
+				particles[i].posx =  rand() % (camera->size.x/2) + camera->size.x;
 			}
 			
         }

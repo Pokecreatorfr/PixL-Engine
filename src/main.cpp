@@ -54,7 +54,10 @@ int main(int argc, char* argv[])
 	World_Renderer *world_renderer = new World_Renderer(&world_world, &camera);
 	camera.Get_View_Size(window);
 	world_renderer->load_weather(0);
+	Logger logger;
 	
+	bool weather_loaded = true;
+
 	while (running)
 	{
 		SDL_Event event;
@@ -86,12 +89,18 @@ int main(int argc, char* argv[])
 				{
 					if (camera.zoom > 0.5f)
 						camera.zoom -= 0.5f;
-					cout<<camera.zoom<<endl;
+					logger.Log("camera zoom : " + to_string(camera.zoom));
 				}
 				if (event.key.keysym.sym == SDLK_KP_PLUS)
 				{
 					camera.zoom += 0.5f;
-					cout<<camera.zoom<<endl;
+					logger.Log("camera zoom : " + to_string(camera.zoom));
+				}
+				// if key N is pressed, change weather
+				if (event.key.keysym.sym == SDLK_n)
+				{
+					weather_loaded == true ? world_renderer->unload_weather() : world_renderer->load_weather(0);
+					weather_loaded = !weather_loaded;
 				}
 			}
 			
@@ -114,5 +123,7 @@ int main(int argc, char* argv[])
 		//cout << "camera position: " << camera.position.x << ", " << camera.position.y << endl;
 	}
 	SDL_Quit();
+	logger.Log("frames since start : " + to_string(frames_since_start));
+	logger.~Logger();
 	return 0;
 }
