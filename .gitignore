@@ -9,3 +9,4 @@ include/imagetocpp.hpp
 project.ini
 asm/graphic.asm
 asm/graphic.asm
+log.txt
