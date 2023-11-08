@@ -1,18 +1,37 @@
-camera zoom : 1.500000
-camera zoom : 2.000000
-camera zoom : 2.500000
-camera zoom : 2.000000
-camera zoom : 1.500000
-camera zoom : 1.000000
-camera zoom : 0.500000
-camera zoom : 0.500000
-camera zoom : 0.500000
-camera zoom : 1.000000
-camera zoom : 0.500000
-camera zoom : 1.000000
-camera zoom : 0.500000
-camera zoom : 1.000000
-camera zoom : 0.500000
-camera zoom : 1.000000
-camera zoom : 0.500000
-camera zoom : 1.000000
+frames since start : 0
+frames since start : 60
+frames since start : 120
+frames since start : 180
+frames since start : 240
+frames since start : 300
+frames since start : 360
+frames since start : 420
+frames since start : 480
+frames since start : 540
+frames since start : 600
+frames since start : 660
+frames since start : 720
+frames since start : 780
+frames since start : 840
+frames since start : 900
+frames since start : 960
+frames since start : 1020
+frames since start : 1080
+frames since start : 1140
+frames since start : 1200
+frames since start : 1260
+frames since start : 1320
+frames since start : 1380
+frames since start : 1440
+frames since start : 1500
+frames since start : 1560
+frames since start : 1620
+frames since start : 1680
+frames since start : 1740
+frames since start : 1800
+frames since start : 1860
+frames since start : 1920
+frames since start : 1980
+frames since start : 2040
+frames since start : 2100
+frames since start : 2156

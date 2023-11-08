@@ -70,24 +70,24 @@ int main(int argc, char* argv[])
 			{
 				if (event.key.keysym.sym == SDLK_UP)
 				{
-					camera.position.y -= 16;
+					camera.position.y -= 32;
 				}
 				if (event.key.keysym.sym == SDLK_DOWN)
 				{
-					camera.position.y += 16;
+					camera.position.y += 32;
 				}
 				if (event.key.keysym.sym == SDLK_LEFT)
 				{
-					camera.position.x -= 16;
+					camera.position.x -= 32;
 				}
 				if (event.key.keysym.sym == SDLK_RIGHT)
 				{
-					camera.position.x += 16;
+					camera.position.x += 32;
 				}
 				// if + or - is pressed, zoom in or out
 				if (event.key.keysym.sym == SDLK_KP_MINUS)
 				{
-					if (camera.zoom > 0.5f)
+					if (camera.zoom > 1.0f)
 						camera.zoom -= 0.5f;
 					logger.Log("camera zoom : " + to_string(camera.zoom));
 				}
@@ -117,10 +117,10 @@ int main(int argc, char* argv[])
 
 		SDL_RenderPresent(renderer);
 		while (chrono::duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() - millisec_since_epoch < 1000 / FPS);
-		//cout<<chrono::duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() - millisec_since_epoch<<endl;
+		{
 		millisec_since_epoch = chrono::duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+		}
 		frames_since_start++;
-		//cout << "camera position: " << camera.position.x << ", " << camera.position.y << endl;
 	}
 	SDL_Quit();
 	logger.Log("frames since start : " + to_string(frames_since_start));
