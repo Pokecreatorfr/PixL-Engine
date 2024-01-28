@@ -19,7 +19,7 @@ def generate_hpp_resource_entry(image_filename):
 def generate_files():
     image_dir = 'graphics'
     asm_dir = 'asm'
-    include_dir = 'include'
+    include_dir = 'include\generated\image2cpp.hpp'
 
     if not os.path.exists(asm_dir):
         os.makedirs(asm_dir)
@@ -37,7 +37,7 @@ def generate_files():
 
     print(f'Processed {len(image_files)} images and wrote to graphic.asm')
 
-    with open(os.path.join(include_dir, 'imagetocpp.hpp'), 'w') as hpp_file:
+    with open(os.path.join(os.path.dirname(__file__), include_dir), 'w') as hpp_file:
         hpp_file.write('#pragma once\n')
         hpp_file.write('#include <Graphics.hpp>\n\n')
         

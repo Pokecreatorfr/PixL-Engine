@@ -1,6 +1,6 @@
 #include <Graphics.hpp>
 
-Tileset* Load_Tileset(image_ressource image_ressource, SDL_Renderer* renderer , int tile_width, int tile_height)
+/*Tileset* Load_Tileset(image_ressource image_ressource, SDL_Renderer* renderer , int tile_width, int tile_height)
 {
 	Tileset* tileset = new Tileset;
 	
@@ -58,7 +58,7 @@ Tileset* Load_Tileset(image_ressource image_ressource, SDL_Renderer* renderer , 
 	SDL_FreeSurface(surface);
 
 	return tileset;
-}
+}*/
 
 SDL_Texture *Load_Texture(image_ressource image_ressource, SDL_Renderer *renderer)
 {

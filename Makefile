@@ -27,6 +27,10 @@ all: include_ressources $(ASMOBJS) $(TARGET)
 include_ressources:
 	@echo "Running include_ressources..."
 	@python include_ressources.py
+	@echo "Running include_tilesets..."
+	@python include_tilesets.py
+	@echo "Running include_maps..."
+	@python include_maps.py
 	@mkdir -p $(OBJDIR)
 
 $(ASMOBJS): $(OBJDIR)/%.o: $(ASMDIR)/%.asm

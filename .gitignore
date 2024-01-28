@@ -4,9 +4,10 @@
 obj/
 asm/
 
-include/imagetocpp.hpp
+include/generated/
 *.asm
 project.ini
 asm/graphic.asm
 asm/graphic.asm
 log.txt
+*.pyc

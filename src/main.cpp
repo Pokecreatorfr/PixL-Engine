@@ -1,9 +1,9 @@
 #include <chrono>
-#include <Render.hpp>
-#include <maptocpp.hpp>
-#include <imagetocpp.hpp>
 #include <const/Config.hpp>
-
+#include <SDL2/SDL.h>
+#include <Light.hpp>
+#include <generated/map2cpp.hpp>
+#include <Renderer.hpp>
 using namespace std;
 using namespace std::chrono;
 
@@ -12,118 +12,66 @@ using namespace std::chrono;
 
 int main(int argc, char* argv[])
 {
-	if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
+	// init SDL
+	if (SDL_Init(SDL_INIT_VIDEO) != 0)
 	{
-		cout << "SDL initialization failed. SDL Error: " << SDL_GetError();
-	}
-	else
-	{
-		cout << "SDL initialization succeeded!" << endl;
+		cout << "Failed to init SDL\n";
+		return 1;
 	}
 
-
-	SDL_Window* window = SDL_CreateWindow(	"2D_ENGINE",
-											SDL_WINDOWPOS_CENTERED,
-											SDL_WINDOWPOS_CENTERED,
-											WINDOW_WIDTH, WINDOW_HEIGHT,
-											SDL_WINDOW_RESIZABLE);
+	// create window
+	SDL_Window* window = SDL_CreateWindow("PixL Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN);
 	if (!window)
 	{
-		std::cout << "Failed to create window\n";
-		return -1;
+		cout << "Failed to create window\n";
+		return 1;
 	}
 
+	// create renderer
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
-	bool running = true;
-
-
-	auto millisec_since_epoch = chrono::duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-
-	int frames_since_start = 0;
-
-	Tileset* tileset = Load_Tileset(tileset1_ressource, renderer, 32, 32);
-	if (!tileset)
+	if (!renderer)
 	{
-		cout << "Failed to load tileset\n";
-		return -1;
+		cout << "Failed to create renderer\n";
+		return 1;
 	}
 
-	Camera camera = { {0,0}, renderer , {0,0}, 1 };
+	SDL_Texture *texture = Generate_Light_Texture(renderer, 100, 255, 255, 0, 100);
+	SDL_Texture *texture2 = Generate_Light_Texture(renderer, 100, 255, 255, 0, 100);
+	SDL_SetTextureColorMod(texture2, 200, 0, 200);
 
-	World_Renderer *world_renderer = new World_Renderer(&world_world, &camera);
-	camera.Get_View_Size(window);
-	world_renderer->load_weather(0);
-	Logger logger;
+	bool quit = false;
 	
-	bool weather_loaded = true;
-
-	while (running)
+	// main loop
+	while (!quit)
 	{
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
 		{
-			if (event.type == SDL_QUIT) running = false;
-
-			// if arrow keys are pressed, move camera
-			if (event.type == SDL_KEYDOWN)
+			// quit
+			if (event.type == SDL_QUIT)
 			{
-				if (event.key.keysym.sym == SDLK_UP)
-				{
-					camera.position.y -= 32;
-				}
-				if (event.key.keysym.sym == SDLK_DOWN)
-				{
-					camera.position.y += 32;
-				}
-				if (event.key.keysym.sym == SDLK_LEFT)
-				{
-					camera.position.x -= 32;
-				}
-				if (event.key.keysym.sym == SDLK_RIGHT)
-				{
-					camera.position.x += 32;
-				}
-				// if + or - is pressed, zoom in or out
-				if (event.key.keysym.sym == SDLK_KP_MINUS)
-				{
-					if (camera.zoom > 1.0f)
-						camera.zoom -= 0.5f;
-					logger.Log("camera zoom : " + to_string(camera.zoom));
-				}
-				if (event.key.keysym.sym == SDLK_KP_PLUS)
-				{
-					camera.zoom += 0.5f;
-					logger.Log("camera zoom : " + to_string(camera.zoom));
-				}
-				// if key N is pressed, change weather
-				if (event.key.keysym.sym == SDLK_n)
-				{
-					weather_loaded == true ? world_renderer->unload_weather() : world_renderer->load_weather(0);
-					weather_loaded = !weather_loaded;
-				}
+				quit = true;
 			}
-			
 		}
-		camera.Get_View_Size(window);
-		world_renderer->update();
+
+		// clear screen
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
-
-
-
-		world_renderer->Draw(tileset);
-
-
+		
+		// draw
+		SDL_Rect rect;
+		rect.x = 0;
+		rect.y = 0;
+		rect.w = 100;
+		rect.h = 100;
+		SDL_RenderCopy(renderer, texture, NULL, &rect);
+		rect.x = 50;
+		rect.y = 50;
+		SDL_RenderCopy(renderer, texture, NULL, &rect);
+		// update screen
 		SDL_RenderPresent(renderer);
-		while (chrono::duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() - millisec_since_epoch < 1000 / FPS);
-		{
-		millisec_since_epoch = chrono::duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-		}
-		frames_since_start++;
 	}
-	SDL_Quit();
-	logger.Log("frames since start : " + to_string(frames_since_start));
-	logger.~Logger();
+
+
 	return 0;
 }
