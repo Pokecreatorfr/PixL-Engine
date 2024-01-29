@@ -13,7 +13,7 @@ cpp_file = "#pragma once\n\n#include <map_struct.hpp>\n\n"
 cpp_file += f"#include <generated/tileset2cpp.hpp> \n"
 cpp_file += f"#include <vector>\n\n"
 
-maps_vector = "std::vector<const map_struct*> overworld_maps = {\n"
+maps_vector = "const std::vector<const map_struct*> overworld_maps = {\n"
 
 
 for map in world['levels']:

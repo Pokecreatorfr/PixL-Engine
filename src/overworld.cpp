@@ -41,13 +41,13 @@ void Overworld::update()
 
         )
         {
-            // delete map from vector
             maps.erase(maps.begin() + i);
         }
     }
     for(int i = 0 ; i < overworld_maps.size() ; i++)
     {
-        if( 
+        if
+        ( 
             maps[i]->map_pos_x + maps[i]->width * 2< overworld_struct->camera.x + (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 )
             &&
             maps[i]->map_pos_x + maps[i]->width > overworld_struct->camera.x - (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 )
@@ -57,7 +57,6 @@ void Overworld::update()
             maps[i]->map_pos_y + maps[i]->height > overworld_struct->camera.y - (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 )
         )
         {
-            // check if map is present in maps vector
             bool map_present = false;
             for(int j = 0 ; j < maps.size() ; j++)
             {
