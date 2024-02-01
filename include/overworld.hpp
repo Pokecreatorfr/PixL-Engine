@@ -11,8 +11,9 @@ class Overworld
     ~Overworld();
     void load_tileset(const tileset* tileset);
     void load_map(const map_struct* map);
+    void unload_map(int index);
     void update();
-
+    
     private:
     SDL_Renderer* renderer;
     std::vector<Tileset*> tilesets;

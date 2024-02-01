@@ -30,6 +30,7 @@ class Tileset
         ~Tileset();
         void get_tile(int tile_index, SDL_Rect* tile);
         SDL_Texture* get_texture();
+        int get_tileset_uid();
 
 
     private:

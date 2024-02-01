@@ -35,3 +35,8 @@ SDL_Texture* Tileset::get_texture()
 {
     return this->texture;
 }
+
+int Tileset::get_tileset_uid()
+{
+    return this->uid;
+}
