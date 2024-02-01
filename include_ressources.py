@@ -19,13 +19,16 @@ def generate_hpp_resource_entry(image_filename):
 def generate_files():
     image_dir = 'graphics'
     asm_dir = 'asm'
+    generated_dir = 'include\generated'
     include_dir = 'include\generated\image2cpp.hpp'
 
     if not os.path.exists(asm_dir):
         os.makedirs(asm_dir)
         print(f'Created folder: {asm_dir}')
 
-    
+    if not os.path.exists(generated_dir):
+        os.makedirs(generated_dir)
+        print(f'Created folder: {generated_dir}')
 
     image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.bmp'))]
 
@@ -50,6 +53,6 @@ def generate_files():
         for image in image_files:
             resource_entry = generate_hpp_resource_entry(image)
             hpp_file.write(resource_entry)
-        print(f'Generated imagetocpp.hpp')
+        print(f'Generated image2cpp.hpp')
 
 generate_files()
