@@ -83,10 +83,13 @@ void Overworld::update()
     {
         if
         ( 
-            maps[i]->map_pos_x + maps[i]->width * 2< overworld_struct->camera.x + (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 ) &&
-            maps[i]->map_pos_x + maps[i]->width > overworld_struct->camera.x - (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 ) &&
-            maps[i]->map_pos_y + maps[i]->height * 2< overworld_struct->camera.y + (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 ) &&
-            maps[i]->map_pos_y + maps[i]->height > overworld_struct->camera.y - (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 )
+            overworld_maps[i]->map_pos_x + overworld_maps[i]->width * 2< overworld_struct->camera.x + (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 )
+            &&
+            overworld_maps[i]->map_pos_x + overworld_maps[i]->width > overworld_struct->camera.x - (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 )
+            &&
+            overworld_maps[i]->map_pos_y + overworld_maps[i]->height * 2< overworld_struct->camera.y + (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 )
+            &&
+            overworld_maps[i]->map_pos_y + overworld_maps[i]->height > overworld_struct->camera.y - (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 )
         )
         {
             bool map_present = false;
