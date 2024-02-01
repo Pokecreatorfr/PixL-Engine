@@ -19,8 +19,8 @@ def generate_hpp_resource_entry(image_filename):
 def generate_files():
     image_dir = 'graphics'
     asm_dir = 'asm'
-    generated_dir = 'include\generated'
-    include_dir = 'include\generated\image2cpp.hpp'
+    generated_dir = '.\include\generated'
+    include_dir = '.\include\generated\image2cpp.hpp'
 
     if not os.path.exists(asm_dir):
         os.makedirs(asm_dir)
