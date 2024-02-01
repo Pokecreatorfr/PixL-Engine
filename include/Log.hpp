@@ -10,7 +10,7 @@ class Logger
 public:
     Logger();
     ~Logger();
-    void Log(string message);
+    void log(string message);
 private:
     string log_file_path = "log.txt";
     FILE* log_file;

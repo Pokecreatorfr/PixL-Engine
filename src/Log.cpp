@@ -10,7 +10,7 @@ Logger::~Logger()
     fclose(log_file);
 }
 
-void Logger::Log(string message)
+void Logger::log(string message)
 {
     fprintf(log_file,"%s\n",message.c_str());
     cout << message << endl;

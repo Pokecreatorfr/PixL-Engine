@@ -1,12 +1,16 @@
 #pragma once
 
-struct camera_struct
+struct coord_2d
 {
     int x;
     int y;
+};
+
+struct camera
+{
+    struct coord_2d size;
+    struct coord_2d position;
     float zoom;
-    int width;
-    int height;
 };
 
 struct time_struct
@@ -20,5 +24,6 @@ struct overworld_vars
 {
     int animations_ticks;
     time_struct time;
-    camera_struct camera;
+    camera camera;
 };
+

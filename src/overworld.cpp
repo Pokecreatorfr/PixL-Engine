@@ -1,10 +1,12 @@
 #include <overworld.hpp>
 
-Overworld::Overworld(SDL_Renderer* renderer, overworld_vars* overworld_struct, std::vector<SDL_Texture*> layers)
+Overworld::Overworld(SDL_Renderer* renderer, overworld_vars* overworld_struct, std::vector<SDL_Texture*> layers, Logger* logger)
 {
     this->renderer = renderer;
     this->overworld_struct = overworld_struct;
     this->layers = layers;
+    this->logger = logger;
+    logger->log("Overworld created");
 }
 
 Overworld::~Overworld()
@@ -67,30 +69,19 @@ void Overworld::update()
 {
     for(int i = 0 ; i <maps.size() ; i++)
     {
-        if( 
-
-            maps[i]->map_pos_x + maps[i]->width < overworld_struct->camera.x - (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 ) ||
-            maps[i]->map_pos_x > overworld_struct->camera.x + (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 ) ||
-            maps[i]->map_pos_y + maps[i]->height < overworld_struct->camera.y - (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 ) ||
-            maps[i]->map_pos_y > overworld_struct->camera.y + (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 )
-
-        )
+        coord_2d pos = {maps[i]->map_pos_x, maps[i]->map_pos_y};
+        coord_2d size = {maps[i]->width, maps[i]->height};
+        if(check_visibility(pos, size , overworld_struct->camera))
         {
             unload_map(i);
         }
     }
     for(int i = 0 ; i < overworld_maps.size() ; i++)
     {
+        coord_2d pos = {maps[i]->map_pos_x, maps[i]->map_pos_y};
+        coord_2d size = {maps[i]->width, maps[i]->height};
         if
-        ( 
-            overworld_maps[i]->map_pos_x + overworld_maps[i]->width * 2< overworld_struct->camera.x + (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 )
-            &&
-            overworld_maps[i]->map_pos_x + overworld_maps[i]->width > overworld_struct->camera.x - (overworld_struct->camera.width * ( 1/ overworld_struct->camera.zoom) / 2 )
-            &&
-            overworld_maps[i]->map_pos_y + overworld_maps[i]->height * 2< overworld_struct->camera.y + (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 )
-            &&
-            overworld_maps[i]->map_pos_y + overworld_maps[i]->height > overworld_struct->camera.y - (overworld_struct->camera.height * ( 1/ overworld_struct->camera.zoom) / 2 )
-        )
+        ( check_visibility(pos, size , overworld_struct->camera))
         {
             bool map_present = false;
             for(int j = 0 ; j < maps.size() ; j++)
@@ -114,13 +105,20 @@ void Overworld::draw()
     for(int i = 0 ; i < 3 ; i++)
     {
         SDL_Texture* drawed_layer = this->layers[i];
-        SDL_SetRenderTarget(this->renderer, drawed_layer);
+        SDL_SetRenderTarget(this->renderer, NULL);
         SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, 0);
         SDL_RenderClear(this->renderer);
         for( int j = 0 ; j < maps.size() ; j++)
         {
-            int relative_pos_x = maps[j]->map_pos_x - overworld_struct->camera.x;
-            int relative_pos_y = maps[j]->map_pos_y - overworld_struct->camera.y;
+            Tileset* actual_tileset = nullptr;
+            for(int k = 0 ; k < tilesets.size() ; k++)
+            {
+                if(tilesets[k]->get_tileset_uid() == maps[j]->tileset->uid)
+                {
+                    actual_tileset = tilesets[k];
+                }
+            }
+
             const std::vector<int>* actual_layer = nullptr;
             switch (j)
             {
@@ -141,7 +139,7 @@ void Overworld::draw()
                     int tile_index = (*actual_layer)[x + y * maps[j]->width];
                     if(tile_index != -1)
                     {
-                        this->tilesets[j]->draw_tile(tile_index, relative_pos_x + x * TILE_SIZE, relative_pos_y + y * TILE_SIZE);
+                        // TODO 
                     }
                 }
             }

@@ -26,21 +26,20 @@ int main(int argc, char* argv[])
 		cout << "Failed to create window\n";
 		return 1;
 	}
-
-	// create renderer
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-	if (!renderer)
-	{
-		cout << "Failed to create renderer\n";
-		return 1;
-	}
-
-	SDL_Texture *texture = Generate_Light_Texture(renderer, 100, 255, 255, 0, 100);
-	SDL_Texture *texture2 = Generate_Light_Texture(renderer, 100, 255, 255, 0, 100);
-	SDL_SetTextureColorMod(texture2, 200, 0, 200);
-
 	bool quit = false;
-	
+
+	overworld_vars overworld_struct;
+	overworld_struct.camera.position.x = 0;
+	overworld_struct.camera.position.y = 0;
+	overworld_struct.camera.zoom = 1;
+	overworld_struct.camera.size.x = WINDOW_WIDTH;
+	overworld_struct.camera.size.y = WINDOW_HEIGHT;
+
+	Logger* logger = new Logger();
+	logger->log("logger created");
+
+	Renderer* renderer_class = new Renderer(window, &overworld_struct, logger);
+	Overworld* overworld = renderer_class->GetOverworld();
 	// main loop
 	while (!quit)
 	{
@@ -52,24 +51,44 @@ int main(int argc, char* argv[])
 			{
 				quit = true;
 			}
+			// if window is resized
+			if (event.type == SDL_WINDOWEVENT)
+			{
+				if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+				{
+					// update window size
+					SDL_GetWindowSize(window, &overworld_struct.camera.size.x, &overworld_struct.camera.size.y);
+				}
+			}
+			// if arrow keys are pressed
+			if (event.type == SDL_KEYDOWN)
+			{
+				switch (event.key.keysym.sym)
+				{
+				case SDLK_UP:
+					overworld_struct.camera.position.y -= 10;
+					break;
+				case SDLK_DOWN:
+					overworld_struct.camera.position.x += 10;
+					break;
+				case SDLK_LEFT:
+					overworld_struct.camera.position.x -= 10;
+					break;
+				case SDLK_RIGHT:
+					overworld_struct.camera.position.y += 10;
+					break;
+				case SDLK_KP_PLUS:
+					overworld_struct.camera.zoom += 0.1;
+					break;
+				case SDLK_KP_MINUS:
+					overworld_struct.camera.zoom -= 0.1;
+					break;
+				}
+			}
 		}
-
-		// clear screen
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-		SDL_RenderClear(renderer);
-		
-		// draw
-		SDL_Rect rect;
-		rect.x = 0;
-		rect.y = 0;
-		rect.w = 100;
-		rect.h = 100;
-		SDL_RenderCopy(renderer, texture, NULL, &rect);
-		rect.x = 50;
-		rect.y = 50;
-		SDL_RenderCopy(renderer, texture, NULL, &rect);
-		// update screen
-		SDL_RenderPresent(renderer);
+		overworld->update();
+		overworld->draw();
+		renderer_class->draw();
 	}
 
 
