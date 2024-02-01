@@ -40,3 +40,15 @@ int Tileset::get_tileset_uid()
 {
     return this->uid;
 }
+
+void Tileset::draw_tile(int tile_index, int x, int y)
+{
+    SDL_Rect tile;
+    this->get_tile(tile_index, &tile);
+    SDL_Rect dest;
+    dest.x = x;
+    dest.y = y;
+    dest.w = TILE_SIZE;
+    dest.h = TILE_SIZE;
+    SDL_RenderCopy(this->renderer, this->texture, &tile, &dest);
+}

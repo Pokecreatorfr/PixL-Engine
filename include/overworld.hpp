@@ -2,6 +2,7 @@
 #include <tileset.hpp>
 #include <map_struct.hpp>
 #include <generated/map2cpp.hpp>
+#include <const/const_renderer.hpp>
 
 
 class Overworld
@@ -13,7 +14,8 @@ class Overworld
     void load_map(const map_struct* map);
     void unload_map(int index);
     void update();
-    
+    void draw();
+
     private:
     SDL_Renderer* renderer;
     std::vector<Tileset*> tilesets;

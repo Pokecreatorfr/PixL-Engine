@@ -105,3 +105,43 @@ void Overworld::update()
 
     }
 }
+
+void Overworld::draw()
+{
+    for(int i = 0 ; i < 3 ; i++)
+    {
+        SDL_Texture* drawed_layer = this->layers[i];
+        SDL_SetRenderTarget(this->renderer, drawed_layer);
+        SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, 0);
+        SDL_RenderClear(this->renderer);
+        for( int j = 0 ; j < maps.size() ; j++)
+        {
+            int relative_pos_x = maps[j]->map_pos_x - overworld_struct->camera.x;
+            int relative_pos_y = maps[j]->map_pos_y - overworld_struct->camera.y;
+            const std::vector<int>* actual_layer = nullptr;
+            switch (j)
+            {
+            case 0:
+                actual_layer = &maps[j]->tile_layer_0;
+                break;
+            case 1:
+                actual_layer = &maps[j]->tile_layer_1;
+                break;
+            case 2:
+                actual_layer = &maps[j]->tile_layer_2;
+                break;
+            }
+            for(int x = 0 ; x < maps[j]->width ; x++)
+            {
+                for(int y = 0 ; y < maps[j]->height ; y++)
+                {
+                    int tile_index = (*actual_layer)[x + y * maps[j]->width];
+                    if(tile_index != -1)
+                    {
+                        this->tilesets[j]->draw_tile(tile_index, relative_pos_x + x * TILE_SIZE, relative_pos_y + y * TILE_SIZE);
+                    }
+                }
+            }
+        }
+    }
+}
