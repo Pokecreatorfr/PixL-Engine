@@ -71,15 +71,16 @@ void Overworld::update()
     {
         coord_2d pos = {maps[i]->map_pos_x, maps[i]->map_pos_y};
         coord_2d size = {maps[i]->width, maps[i]->height};
-        if(check_visibility(pos, size , overworld_struct->camera))
+        if(!check_visibility(pos, size , overworld_struct->camera))
         {
+            logger->log("map " + std::to_string(i) + " unloaded");
             unload_map(i);
         }
     }
     for(int i = 0 ; i < overworld_maps.size() ; i++)
     {
-        coord_2d pos = {maps[i]->map_pos_x, maps[i]->map_pos_y};
-        coord_2d size = {maps[i]->width, maps[i]->height};
+        coord_2d pos = {overworld_maps[i]->map_pos_x, overworld_maps[i]->map_pos_y};
+        coord_2d size = {overworld_maps[i]->width, overworld_maps[i]->height};
         if
         ( check_visibility(pos, size , overworld_struct->camera))
         {
@@ -88,11 +89,13 @@ void Overworld::update()
             {
                 if(maps[j] == overworld_maps[i])
                 {
+                    
                     map_present = true;
                 }
             }
             if(!map_present)
             {
+                logger->log("map " + std::to_string(i) + " loaded");
                 load_map(overworld_maps[i]);
             }
         }
@@ -102,6 +105,9 @@ void Overworld::update()
 
 void Overworld::draw()
 {
+    // calc tiles size 
+    int sizew = TILE_SIZE * overworld_struct->camera.zoom;
+    int sizeh = TILE_SIZE * overworld_struct->camera.zoom; 
     for(int i = 0 ; i < 3 ; i++)
     {
         SDL_Texture* drawed_layer = this->layers[i];
@@ -110,6 +116,8 @@ void Overworld::draw()
         SDL_RenderClear(this->renderer);
         for( int j = 0 ; j < maps.size() ; j++)
         {
+            float map_pos_x = ( maps[j]->map_pos_x * TILE_SIZE - overworld_struct->camera.position.x) * overworld_struct->camera.zoom + overworld_struct->camera.size.x / 2;
+            float map_pos_y = ( maps[j]->map_pos_y * TILE_SIZE - overworld_struct->camera.position.y) * overworld_struct->camera.zoom + overworld_struct->camera.size.y / 2;
             Tileset* actual_tileset = nullptr;
             for(int k = 0 ; k < tilesets.size() ; k++)
             {
@@ -118,28 +126,41 @@ void Overworld::draw()
                     actual_tileset = tilesets[k];
                 }
             }
+            for(int k = 0 ; k < 3 ; k++)
+            {
 
-            const std::vector<int>* actual_layer = nullptr;
-            switch (j)
-            {
-            case 0:
-                actual_layer = &maps[j]->tile_layer_0;
-                break;
-            case 1:
-                actual_layer = &maps[j]->tile_layer_1;
-                break;
-            case 2:
-                actual_layer = &maps[j]->tile_layer_2;
-                break;
-            }
-            for(int x = 0 ; x < maps[j]->width ; x++)
-            {
-                for(int y = 0 ; y < maps[j]->height ; y++)
+                const std::vector<int>* actual_layer = nullptr;
+                switch (k)
                 {
-                    int tile_index = (*actual_layer)[x + y * maps[j]->width];
-                    if(tile_index != -1)
+                case 0:
+                    actual_layer = &maps[j]->tile_layer_0;
+                    break;
+                case 1:
+                    actual_layer = &maps[j]->tile_layer_1;
+                    break;
+                case 2:
+                    actual_layer = &maps[j]->tile_layer_2;
+                    break;
+                }
+                for(int x = 0 ; x < maps[j]->width ; x++)
+                {
+                    for(int y = 0 ; y < maps[j]->height ; y++)
                     {
-                        // TODO 
+                        int tile_index = (*actual_layer)[x + y * maps[j]->width];
+                        if(tile_index != -1)
+                        {
+                            float posx = map_pos_x + x * sizew;
+                            float posy = map_pos_y + y * sizeh;
+                            //float posx = ((maps[j]->map_pos_x + x) * TILE_SIZE - overworld_struct->camera.position.x) * overworld_struct->camera.zoom + overworld_struct->camera.size.x / 2;
+                            //float posy = ((maps[j]->map_pos_y + y) * TILE_SIZE - overworld_struct->camera.position.y) * overworld_struct->camera.zoom + overworld_struct->camera.size.y / 2;
+                            if(x == 0 )
+                            {
+                                //logger->log("x : " + std::to_string(x) + " y : " + std::to_string(y));
+                                //logger->log("posx : " + std::to_string(posx) + " posy : " + std::to_string(posy));
+                                //logger->log("sizeh : " + std::to_string(sizeh) + " sizew : " + std::to_string(sizew));
+                            }
+                            actual_tileset->draw_tile(tile_index, posx, posy, sizew, sizeh);
+                        }
                     }
                 }
             }

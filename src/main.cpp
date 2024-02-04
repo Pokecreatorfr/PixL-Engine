@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
 	}
 
 	// create window
-	SDL_Window* window = SDL_CreateWindow("PixL Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN);
+	SDL_Window* window = SDL_CreateWindow("PixL Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 	if (!window)
 	{
 		cout << "Failed to create window\n";
@@ -69,19 +69,24 @@ int main(int argc, char* argv[])
 					overworld_struct.camera.position.y -= 10;
 					break;
 				case SDLK_DOWN:
-					overworld_struct.camera.position.x += 10;
+					overworld_struct.camera.position.y += 10;
 					break;
 				case SDLK_LEFT:
 					overworld_struct.camera.position.x -= 10;
 					break;
 				case SDLK_RIGHT:
-					overworld_struct.camera.position.y += 10;
+					overworld_struct.camera.position.x += 10;
 					break;
 				case SDLK_KP_PLUS:
 					overworld_struct.camera.zoom += 0.1;
 					break;
 				case SDLK_KP_MINUS:
 					overworld_struct.camera.zoom -= 0.1;
+					if (overworld_struct.camera.zoom < 0.1)
+					{
+						overworld_struct.camera.zoom = 0.1;
+					}
+
 					break;
 				}
 			}

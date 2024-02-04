@@ -41,7 +41,7 @@ int Tileset::get_tileset_uid()
     return this->uid;
 }
 
-void Tileset::draw_tile(int tile_index, int x, int y, int h , int w )
+void Tileset::draw_tile(int tile_index, float x, float y, float h , float w )
 {
     SDL_Rect tile;
     this->get_tile(tile_index, &tile);
