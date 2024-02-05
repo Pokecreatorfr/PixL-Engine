@@ -31,7 +31,7 @@ with open('asm/graphic.asm', 'a') as asm_file:
         asm_entry = generate_asm_image_entry(os.path.join('graphics/tilesets', image).replace("\\","/"))
         asm_file.write(asm_entry)
 
-with open('include/generated/image2cpp.hpp', 'a') as hpp_file:
+with open('include\generated\image2cpp.hpp', 'a') as hpp_file:
 
     hpp_file.write('\n\n')
 
