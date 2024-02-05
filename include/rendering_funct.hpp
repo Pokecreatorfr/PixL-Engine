@@ -4,4 +4,4 @@
 
 
 
-bool check_visibility(coord_2d position, coord_2d size, camera camera);
+bool check_visibility(coord_2d position, coord_2d size, Camera camera);

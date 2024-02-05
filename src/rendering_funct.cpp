@@ -1,7 +1,7 @@
 #include <rendering_funct.hpp>
 
 
-bool check_visibility(coord_2d position, coord_2d size, camera camera)
+bool check_visibility(coord_2d position, coord_2d size, Camera camera)
 {
 	float camsx = camera.size.x / 2;
 	float camsy = camera.size.y / 2;

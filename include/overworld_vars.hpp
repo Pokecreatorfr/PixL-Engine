@@ -6,7 +6,7 @@ struct coord_2d
     int y;
 };
 
-struct camera
+struct Camera
 {
     struct coord_2d size;
     struct coord_2d position;
@@ -20,10 +20,19 @@ struct time_struct
     int seconds;
 };
 
+struct Tile
+{
+    Tile(coord_2d position, coord_2d size, int tile_index) : position(position), size(size), tile_index(tile_index) {}
+    coord_2d position;
+    coord_2d size;
+    int tile_index;
+};
+
+
 struct overworld_vars
 {
     int animations_ticks;
     time_struct time;
-    camera camera;
+    Camera camera;
 };
 
