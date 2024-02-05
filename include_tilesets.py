@@ -72,6 +72,6 @@ with open('data/maps/world.ldtk', 'r') as json_file:
 
 # write generated/tileset2cpp.hpp
 
-with open('include/generated/tileset2cpp.hpp', 'w') as file:
+with open(os.path.join(os.path.dirname(__file__), 'include/generated/tileset2cpp.hpp'), 'w') as file:
     file.write(hpp_file)
     print(f'Generated tileset2cpp.hpp')
