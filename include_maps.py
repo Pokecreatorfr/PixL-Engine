@@ -9,7 +9,7 @@ path = os.path.join(os.path.dirname(__file__), 'data/maps/world.ldtk')
 with open(path, 'r') as f:
     world = json.load(f)
 
-cpp_file = "#pragma once\n\n#include <map_struct.hpp>\n\n"
+cpp_file = "#pragma once\n\n#include <MapStruct.hpp>\n\n"
 cpp_file += f"#include <generated/tileset2cpp.hpp> \n"
 cpp_file += f"#include <vector>\n\n"
 
@@ -26,16 +26,29 @@ for map in world['levels']:
     tile_layer1 = map['layerInstances'][3]['gridTiles']
     tile_layer2 = map['layerInstances'][2]['gridTiles']
     collision_layer = map['layerInstances'][1]['intGridCsv']
-    tileset_uid = map['layerInstances'][4]['__tilesetDefUid']
-    tileset_name = ""
+    tileset_uid0 = map['layerInstances'][4]['__tilesetDefUid']
+    tileset_uid1 = map['layerInstances'][3]['__tilesetDefUid']
+    tileset_uid2 = map['layerInstances'][2]['__tilesetDefUid']
+    tileset_name0 = ""
+    tileset_name1 = ""
+    tileset_name2 = ""
 
     maps_vector += f"    &{name},\n"
 
     for tilesets in world['defs']['tilesets']:
-        if tilesets['uid'] == tileset_uid:
+        if tilesets['uid'] == tileset_uid0:
             image_filename = tilesets['relPath']
             base_name = os.path.splitext(os.path.basename(image_filename))[0]
-            tileset_name = "Tileset_"+base_name
+            tileset_name0 = "Tileset_"+base_name
+        if tilesets['uid'] == tileset_uid1:
+            image_filename = tilesets['relPath']
+            base_name = os.path.splitext(os.path.basename(image_filename))[0]
+            tileset_name1 = "Tileset_"+base_name
+        if tilesets['uid'] == tileset_uid2:
+            image_filename = tilesets['relPath']
+            base_name = os.path.splitext(os.path.basename(image_filename))[0]
+            tileset_name2 = "Tileset_"+base_name
+        
 
     tile_layer0_array = [-1] * (height * width)
 
@@ -68,33 +81,32 @@ for map in world['levels']:
     cpp_file += f"const map_struct {name} = {{\n"
     cpp_file += f"    {width},\n    {height},\n"
     cpp_file += f"    {worldX},\n    {worldY},\n"
-    cpp_file += f"    {{"
+    cpp_file += f"    {{&{tileset_name0},  {{"
     for i in range(height * width):
         cpp_file += f"{tile_layer0_array[i]} "
         if(i < height * width - 1):
             cpp_file += ", "
     
-    cpp_file += f"}},\n    {{"
+    cpp_file += f"}},}},\n    {{&{tileset_name1},  {{"
     for i in range(height * width):
         cpp_file += f"{tile_layer1_array[i]} "
         if(i < height * width - 1):
             cpp_file += ", "
     
-    cpp_file += f"}},\n    {{"
+    cpp_file += f"}},}},\n    {{&{tileset_name2},  {{"
     for i in range(height * width):
         cpp_file += f"{tile_layer2_array[i]} "
         if(i < height * width - 1):
             cpp_file += ", "
     
-    cpp_file += f"}}, \n    {{}},\n    {{"
+    cpp_file += f"}},}}, \n    {{}},\n    {{"
 
     for i in range(len(collision_layer)):
         cpp_file += f"{collision_layer[i]} "
         if(i < height * width - 1):
             cpp_file += ", "
     
-    cpp_file += f" }},\n"
-    cpp_file += f"    &{tileset_name}\n}};\n\n"
+    cpp_file += f" }},\n}};\n\n"
 
 maps_vector += "};\n\n"
 

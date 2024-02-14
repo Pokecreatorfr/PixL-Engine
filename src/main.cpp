@@ -2,8 +2,8 @@
 #include <const/Config.hpp>
 #include <SDL2/SDL.h>
 #include <Light.hpp>
-#include <generated/map2cpp.hpp>
-#include <Renderer.hpp>
+#include <Log.hpp>
+#include <iostream>
 using namespace std;
 using namespace std::chrono;
 
@@ -28,18 +28,8 @@ int main(int argc, char* argv[])
 	}
 	bool quit = false;
 
-	overworld_vars overworld_struct;
-	overworld_struct.camera.position.x = 0;
-	overworld_struct.camera.position.y = 0;
-	overworld_struct.camera.zoom = 1;
-	overworld_struct.camera.size.x = WINDOW_WIDTH;
-	overworld_struct.camera.size.y = WINDOW_HEIGHT;
-
 	Logger* logger = new Logger();
 	logger->log("logger created");
-
-	Renderer* renderer_class = new Renderer(window, &overworld_struct, logger);
-	Overworld* overworld = renderer_class->GetOverworld();
 	// main loop
 	while (!quit)
 	{
@@ -51,49 +41,7 @@ int main(int argc, char* argv[])
 			{
 				quit = true;
 			}
-			// if window is resized
-			if (event.type == SDL_WINDOWEVENT)
-			{
-				if (event.window.event == SDL_WINDOWEVENT_RESIZED)
-				{
-					// update window size
-					SDL_GetWindowSize(window, &overworld_struct.camera.size.x, &overworld_struct.camera.size.y);
-				}
-			}
-			// if arrow keys are pressed
-			if (event.type == SDL_KEYDOWN)
-			{
-				switch (event.key.keysym.sym)
-				{
-				case SDLK_UP:
-					overworld_struct.camera.position.y -= 10;
-					break;
-				case SDLK_DOWN:
-					overworld_struct.camera.position.y += 10;
-					break;
-				case SDLK_LEFT:
-					overworld_struct.camera.position.x -= 10;
-					break;
-				case SDLK_RIGHT:
-					overworld_struct.camera.position.x += 10;
-					break;
-				case SDLK_KP_PLUS:
-					overworld_struct.camera.zoom += 0.1;
-					break;
-				case SDLK_KP_MINUS:
-					overworld_struct.camera.zoom -= 0.1;
-					if (overworld_struct.camera.zoom < 0.1)
-					{
-						overworld_struct.camera.zoom = 0.1;
-					}
-
-					break;
-				}
-			}
 		}
-		overworld->update();
-		overworld->draw();
-		renderer_class->draw();
 	}
 
 

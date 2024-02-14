@@ -51,7 +51,7 @@ with open('data/maps/world.ldtk', 'r') as json_file:
     data = json.load(json_file)
 
     hpp_file = "#pragma once\n"
-    hpp_file += "#include <tileset.hpp>\n"
+    hpp_file += "#include <Tileset.hpp>\n"
     hpp_file += "#include <generated/image2cpp.hpp>\n\n"
 
 
