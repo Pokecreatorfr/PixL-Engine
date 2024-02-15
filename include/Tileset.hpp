@@ -24,7 +24,7 @@ struct tileset
 class Tileset
 {
     public:
-        Tileset( tileset const* tileset, camera* camera);
+        Tileset(const tileset* tileset, camera* cam);
         ~Tileset();
         int get_uid();
         int get_tileset_width();
@@ -35,9 +35,8 @@ class Tileset
         int tileset_width;
         int tileset_height;
         SDL_Texture *texture;
-        SDL_Rect* tile_rects;
+        std::vector<SDL_Rect*> tile_rects;
         std::vector<tile_animation> animations;
-        camera* camera;
-        
+        camera* Camera;
         int get_tile_index(int tile_index);
 };
