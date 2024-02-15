@@ -19,4 +19,5 @@ class MapRenderer
         camera *Camera;
         map_struct map;
         std::vector<Tileset*> tilesets;
+        void draw(tiles_layer tl , Tileset* ts);
 };

@@ -47,44 +47,17 @@ int MapRenderer::get_map_pos_y()
 
 void MapRenderer::draw_layer0()
 {
-    for(int i = 0; i < this->map.width; i++)
-    {
-        for(int j = 0; j < this->map.height; j++)
-        {
-            if (this->map.tile_layer_0.tiles[i + j * this->map.width] != -1)
-            {
-                this->tilesets[0]->draw_tile(this->map.tile_layer_0.tiles[i + j * this->map.width], i * TILE_SIZE, j * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-            }
-        }
-    }
+    draw(this->map.tile_layer_0, this->tilesets[0]);
 }
 
 void MapRenderer::draw_layer1()
 {
-    for(int i = 0; i < this->map.width; i++)
-    {
-        for(int j = 0; j < this->map.height; j++)
-        {
-            if (this->map.tile_layer_1.tiles[i + j * this->map.width] != -1)
-            {
-                this->tilesets[1]->draw_tile(this->map.tile_layer_1.tiles[i + j * this->map.width], i * TILE_SIZE, j * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-            }
-        }
-    }
+    draw(this->map.tile_layer_1, this->tilesets[1]);
 }
 
 void MapRenderer::draw_layer2()
 {
-    for(int i = 0; i < this->map.width; i++)
-    {
-        for(int j = 0; j < this->map.height; j++)
-        {
-            if (this->map.tile_layer_2.tiles[i + j * this->map.width] != -1)
-            {
-                this->tilesets[2]->draw_tile(this->map.tile_layer_2.tiles[i + j * this->map.width], i * TILE_SIZE, j * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-            }
-        }
-    }
+    draw(this->map.tile_layer_2, this->tilesets[2]);
 }
 
 std::vector<int> MapRenderer::get_tilesets_uid()
@@ -103,3 +76,22 @@ std::vector<int> MapRenderer::get_tilesets_uid()
     return t;
 }
 
+void MapRenderer::draw(tiles_layer tl , Tileset* ts)
+{
+    for(int i = 0; i < this->map.width; i++)
+    {
+        for(int j = 0; j < this->map.height; j++)
+        {
+            if (tl.tiles[i + j * this->map.width] != -1)
+            {
+                ts->draw_tile(
+                    tl.tiles[i + j * this->map.width],
+                    ((map.map_pos_x + i) * TILE_SIZE - Camera->position.x) * Camera->zoom + Camera->size.x / 2,
+                    ((map.map_pos_y + j) * TILE_SIZE - Camera->position.y) * Camera->zoom + Camera->size.y / 2,
+                    TILE_SIZE * Camera->zoom,
+                    TILE_SIZE* Camera->zoom
+                    );
+            }
+        }
+    }
+}

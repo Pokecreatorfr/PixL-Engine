@@ -6,7 +6,7 @@
 class TilemapRenderer
 {
     public:
-        TilemapRenderer(camera *camera);
+        TilemapRenderer(camera *camera , );
     private:
         camera *camera;
 };

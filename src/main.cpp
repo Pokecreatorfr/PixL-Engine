@@ -59,6 +59,35 @@ int main(int argc, char* argv[])
 					SDL_GetWindowSize(window, &Camera->size.x, &Camera->size.y);
 				}
 			}
+
+			// if key pressed
+			if (event.type == SDL_KEYDOWN)
+			{
+				switch (event.key.keysym.sym)
+				{
+					case SDLK_ESCAPE:
+						quit = true;
+						break;
+					case SDLK_UP:
+						Camera->position.y += 10;
+						break;
+					case SDLK_DOWN:
+						Camera->position.y -= 10;
+						break;
+					case SDLK_LEFT:
+						Camera->position.x += 10;
+						break;
+					case SDLK_RIGHT:
+						Camera->position.x -= 10;
+						break;
+					case SDLK_KP_PLUS:
+						Camera->zoom += 0.1;
+						break;
+					case SDLK_KP_MINUS:
+						Camera->zoom -= 0.1;
+						break;
+				}
+			}
 		}
 
 		// clear screen
