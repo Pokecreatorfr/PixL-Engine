@@ -6,7 +6,7 @@
 struct tiles_layer
 {
     const tileset* tileset;
-    const std::vector<int> tiles;
+    std::vector<int> tiles;
 };
 
 struct map_struct
@@ -16,9 +16,9 @@ struct map_struct
     int height;
     int map_pos_x;
     int map_pos_y;
-    const tiles_layer tile_layer_0;
-    const tiles_layer tile_layer_1;
-    const tiles_layer tile_layer_2;
+    tiles_layer tile_layer_0;
+    tiles_layer tile_layer_1;
+    tiles_layer tile_layer_2;
     std::vector<int> collision_layer;
     std::vector<int> entity_layer;
 };

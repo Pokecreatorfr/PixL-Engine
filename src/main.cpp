@@ -2,8 +2,8 @@
 #include <const/Config.hpp>
 #include <Light.hpp>
 #include <Log.hpp>
-#include <Tileset.hpp>
-#include <generated/tileset2cpp.hpp>
+#include <MapRenderer.hpp>
+#include <generated/map2cpp.hpp>
 using namespace std;
 using namespace std::chrono;
 
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 	Camera->zoom = 1.0;
 	Camera->logger = new Logger();
 	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
-
+	MapRenderer* map = new MapRenderer(Camera , Level_0);
 
 
 	// main loop
@@ -64,13 +64,11 @@ int main(int argc, char* argv[])
 		// clear screen
 		SDL_SetRenderDrawColor(Camera->renderer, 0, 0, 0, 255);
 		SDL_RenderClear(Camera->renderer);
-		for(int i = 0; i < tileset->get_tileset_height(); i++)
-		{
-			for(int j = 0; j < tileset->get_tileset_width(); j++)
-			{
-				tileset->draw_tile(i*tileset->get_tileset_width() + j  , j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-			}
-		}
+
+		// draw map
+		map->draw_layer0();
+		map->draw_layer1();
+		map->draw_layer2();
 
 		// update screen
 		SDL_RenderPresent(Camera->renderer);
