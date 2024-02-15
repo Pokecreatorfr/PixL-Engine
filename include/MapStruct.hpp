@@ -1,12 +1,12 @@
 #pragma once
 #include <vector>
 #include <Graphics.hpp>
-#include <tileset.hpp>
+#include <Tileset.hpp>
 
 struct tiles_layer
 {
     const tileset* tileset;
-    const int tiles[];
+    const std::vector<int> tiles;
 };
 
 struct map_struct

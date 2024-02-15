@@ -4,6 +4,8 @@
 #include <Light.hpp>
 #include <Log.hpp>
 #include <iostream>
+#include <Tileset.hpp>
+#include <generated/tileset2cpp.hpp>
 using namespace std;
 using namespace std::chrono;
 
@@ -30,6 +32,18 @@ int main(int argc, char* argv[])
 
 	Logger* logger = new Logger();
 	logger->log("logger created");
+
+	// new camera struct
+	camera* Camera = new camera(
+		SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED),
+		{0, 0}, 
+		{WINDOW_WIDTH, WINDOW_HEIGHT}, 
+		1.0f);
+
+	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
+
+
+
 	// main loop
 	while (!quit)
 	{

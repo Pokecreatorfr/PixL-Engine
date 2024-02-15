@@ -9,6 +9,14 @@ struct coord_2d
 
 struct camera
 {
+    // create a camera costructor
+    camera(SDL_Renderer* renderer, coord_2d position, coord_2d size, float zoom)
+    {
+        this->renderer = renderer;
+        this->position = position;
+        this->size = size;
+        this->zoom = zoom;
+    }
     SDL_Renderer* renderer;
     coord_2d position;
     coord_2d size;
