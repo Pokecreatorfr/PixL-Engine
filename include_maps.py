@@ -17,6 +17,7 @@ maps_vector = "const std::vector<const map_struct*> overworld_maps = {\n"
 
 
 for map in world['levels']:
+    mapuid = map['uid']
     name = map['identifier']
     worldX = map['worldX'] // 32
     worldY = map['worldY'] // 32
@@ -79,6 +80,7 @@ for map in world['levels']:
     
     
     cpp_file += f"const map_struct {name} = {{\n"
+    cpp_file += f"    {mapuid},\n"
     cpp_file += f"    {width},\n    {height},\n"
     cpp_file += f"    {worldX},\n    {worldY},\n"
     cpp_file += f"    {{&{tileset_name0},  {{"

@@ -11,6 +11,7 @@ struct tiles_layer
 
 struct map_struct
 {
+    int uid;
     int width;
     int height;
     int map_pos_x;
