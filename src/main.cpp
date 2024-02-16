@@ -38,10 +38,16 @@ int main(int argc, char* argv[])
 	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
 	MapRenderer* map = new MapRenderer(Camera , &Level_0);
 
+	int counter = 0;
 
 	// main loop
 	while (!quit)
 	{
+		counter++;
+
+		// debug effect
+		//Camera->zoom = sin(counter / 5000.0f) + 2.0f;
+
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
 		{
@@ -81,10 +87,11 @@ int main(int argc, char* argv[])
 						Camera->position.x -= 32;
 						break;
 					case SDLK_KP_PLUS:
-						Camera->zoom += 0.5f;
+						Camera->zoom += 0.1f;
 						break;
 					case SDLK_KP_MINUS:
-						if (Camera->zoom > 1.0f) Camera->zoom -= 0.5f;
+						Camera->zoom -= 0.01f;
+						Camera->logger->log("Zoom: " + to_string(Camera->zoom));
 						break;
 				}
 			}
