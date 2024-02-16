@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 	Camera->zoom = 1.0;
 	Camera->logger = new Logger();
 	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
-	MapRenderer* map = new MapRenderer(Camera , Level_0);
+	MapRenderer* map = new MapRenderer(Camera , &Level_0);
 
 
 	// main loop
@@ -69,22 +69,22 @@ int main(int argc, char* argv[])
 						quit = true;
 						break;
 					case SDLK_UP:
-						Camera->position.y += 10;
+						Camera->position.y += 32;
 						break;
 					case SDLK_DOWN:
-						Camera->position.y -= 10;
+						Camera->position.y -= 32;
 						break;
 					case SDLK_LEFT:
-						Camera->position.x += 10;
+						Camera->position.x += 32;
 						break;
 					case SDLK_RIGHT:
-						Camera->position.x -= 10;
+						Camera->position.x -= 32;
 						break;
 					case SDLK_KP_PLUS:
-						Camera->zoom += 0.1;
+						Camera->zoom += 0.5f;
 						break;
 					case SDLK_KP_MINUS:
-						Camera->zoom -= 0.1;
+						if (Camera->zoom > 1.0f) Camera->zoom -= 0.5f;
 						break;
 				}
 			}

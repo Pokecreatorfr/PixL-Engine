@@ -1,11 +1,10 @@
 #pragma once
 #include <TilemapRenderer.hpp>
-#include <MapStruct.hpp>
 
 class MapRenderer
 {
     public:
-        MapRenderer(camera *cam , map_struct map);
+        MapRenderer(camera *cam ,const map_struct* map);
         int get_uid();
         int get_width();
         int get_height();
@@ -17,7 +16,9 @@ class MapRenderer
         std::vector<int> get_tilesets_uid();
     private:
         camera *Camera;
-        map_struct map;
         std::vector<Tileset*> tilesets;
+        std::vector<TilemapRenderer*> tilemap_renderers;
         void draw(tiles_layer tl , Tileset* ts);
+        const map_struct* map;
+        
 };

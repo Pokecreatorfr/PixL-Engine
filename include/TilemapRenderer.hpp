@@ -2,11 +2,30 @@
 #include <vector>
 #include <SDL2/SDL.h>
 #include <GlobalsStructs.hpp>
+#include <MapStruct.hpp>
+
+
+struct Tile
+{
+	// constructor
+	Tile(coord_2d position, coord_2d size, int tile_index) : position(position), size(size), tile_index(tile_index) {}
+	coord_2d position;
+	coord_2d size;
+	int tile_index;
+};
 
 class TilemapRenderer
 {
     public:
-        TilemapRenderer(camera *camera , );
+        TilemapRenderer(camera *cam ,const tiles_layer* tl ,int x , int y , int w , int h ,  Tileset* ts);
+        ~TilemapRenderer();
+        int get_height();
+        int get_width();
+        void draw();
     private:
-        camera *camera;
+        int height;
+        int width;
+        camera* Camera;
+        std::vector<Tile> tiles;
+        Tileset* tileset;
 };
