@@ -39,7 +39,7 @@ void TilemapRenderer::draw()
 {
     for(int i = 0; i < this->tiles.size(); i++)
     {
-        if (this->tiles[i].tile_index == -1)
+        if (this->tiles[i].tile_index == -1);
         {
             continue;
         }
@@ -50,8 +50,10 @@ void TilemapRenderer::draw()
         float tileSizeX = this->tiles[i].size.x;
         float tileSizeY = this->tiles[i].size.y;
 
-        rect.x = static_cast<int>((tileX + this->Camera->position.x) * this->Camera->zoom + Camera->size.x / 2);
-        rect.y = static_cast<int>((tileY + this->Camera->position.y) * this->Camera->zoom + Camera->size.y / 2);
+
+
+        rect.x = static_cast<int>((tileX - this->Camera->position.x) * this->Camera->zoom + Camera->size.x / 2);
+        rect.y = static_cast<int>((tileY - this->Camera->position.y) * this->Camera->zoom + Camera->size.y / 2);
 
         // Ajustez les dimensions en fonction du zoom et assurez-vous qu'elles sont des tailles rondes
         rect.w = adjustedSize(tileSizeX, this->Camera->zoom);

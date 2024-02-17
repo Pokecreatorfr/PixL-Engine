@@ -1,4 +1,5 @@
-#include "OverworldRenderer.hpp"
+#include <OverworldRenderer.hpp>
+
 
 OverworldRenderer::OverworldRenderer(camera *cam)
 {
@@ -31,6 +32,7 @@ void OverworldRenderer::check_maps_visibility()
             if(!present)
             {
                 this->map_renderers.push_back(new MapRenderer(this->Camera, overworld_maps[i]));
+                this->Camera->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " loaded");
             }
         }
         else
@@ -41,6 +43,7 @@ void OverworldRenderer::check_maps_visibility()
                 {
                     delete this->map_renderers[j];
                     this->map_renderers.erase(this->map_renderers.begin() + j);
+                    this->Camera->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " unloaded");
                     break;
                 }
             }
@@ -50,5 +53,17 @@ void OverworldRenderer::check_maps_visibility()
 
 bool OverworldRenderer::check_map_visibility(const map_struct* map)
 {
-    return check_visibility(Camera->position.x, Camera->position.y,Camera->size.x * Camera->zoom , Camera->position.y*Camera->zoom, map->map_pos_x, map->map_pos_y, map->width, map->height);
+    coord_2d map_position = {map->map_pos_x, map->map_pos_y};
+    coord_2d map_size = {map->width, map->height};
+    return check_visibility(map_position, map_size, *this->Camera);
+}
+
+void OverworldRenderer::draw()
+{
+    for(int i = 0; i < this->map_renderers.size(); i++)
+    {
+        this->map_renderers[i]->draw_layer0();
+        this->map_renderers[i]->draw_layer1();
+        this->map_renderers[i]->draw_layer2();
+    }
 }

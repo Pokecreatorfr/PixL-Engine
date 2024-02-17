@@ -2,7 +2,7 @@
 #include <const/Config.hpp>
 #include <Light.hpp>
 #include <Log.hpp>
-#include <MapRenderer.hpp>
+#include <OverworldRenderer.hpp>
 #include <generated/map2cpp.hpp>
 using namespace std;
 using namespace std::chrono;
@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 	Camera->zoom = 1.0;
 	Camera->logger = new Logger();
 	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
-	MapRenderer* map = new MapRenderer(Camera , &Level_0);
+	OverworldRenderer* overworld = new OverworldRenderer(Camera);
 
 	int counter = 0;
 
@@ -75,23 +75,22 @@ int main(int argc, char* argv[])
 						quit = true;
 						break;
 					case SDLK_UP:
-						Camera->position.y += 32;
-						break;
-					case SDLK_DOWN:
 						Camera->position.y -= 32;
 						break;
+					case SDLK_DOWN:
+						Camera->position.y += 32;
+						break;
 					case SDLK_LEFT:
-						Camera->position.x += 32;
+						Camera->position.x -= 32;
 						break;
 					case SDLK_RIGHT:
-						Camera->position.x -= 32;
+						Camera->position.x += 32;
 						break;
 					case SDLK_KP_PLUS:
 						Camera->zoom += 0.1f;
 						break;
 					case SDLK_KP_MINUS:
 						Camera->zoom -= 0.01f;
-						Camera->logger->log("Zoom: " + to_string(Camera->zoom));
 						break;
 				}
 			}
@@ -102,9 +101,8 @@ int main(int argc, char* argv[])
 		SDL_RenderClear(Camera->renderer);
 
 		// draw map
-		map->draw_layer0();
-		map->draw_layer1();
-		map->draw_layer2();
+		overworld->check_maps_visibility();
+		overworld->draw();
 
 		// update screen
 		SDL_RenderPresent(Camera->renderer);

@@ -1,9 +1,11 @@
 #pragma once
 #include <cmath>
+#include <GlobalsStructs.hpp>
+#include <const/Config.hpp>
 
 
 
 int adjustedSize(int originalSize, float zoom);
 int calculateExtraPixels(int originalSize, float zoom);
 
-bool check_visibility(int camx, int camy, int camw, int camh, int rectx, int recty, int rectw, int recth);
+bool check_visibility(coord_2d position, coord_2d size, camera cam);

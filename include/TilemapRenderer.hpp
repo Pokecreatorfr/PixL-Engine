@@ -3,7 +3,7 @@
 #include <SDL2/SDL.h>
 #include <GlobalsStructs.hpp>
 #include <MapStruct.hpp>
-#include <math.h>
+#include <maths.hpp>
 
 
 struct Tile
