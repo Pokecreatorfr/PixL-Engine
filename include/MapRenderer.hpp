@@ -5,6 +5,7 @@ class MapRenderer
 {
     public:
         MapRenderer(camera *cam ,const map_struct* map);
+        ~MapRenderer();
         int get_uid();
         int get_width();
         int get_height();

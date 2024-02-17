@@ -25,12 +25,12 @@ Tileset::Tileset(const tileset* tileset, camera* cam)
     
 }
 
-inline Tileset::~Tileset()
+Tileset::~Tileset()
 {
     SDL_DestroyTexture(this->texture);
 }
 
-inline int Tileset::get_uid()
+int Tileset::get_uid()
 {
     return this->uid;
 }

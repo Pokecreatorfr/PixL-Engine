@@ -37,9 +37,10 @@ int TilemapRenderer::get_width()
 
 void TilemapRenderer::draw()
 {
+    int x = 0;
     for(int i = 0; i < this->tiles.size(); i++)
     {
-        if (this->tiles[i].tile_index == -1);
+        if (this->tiles[i].tile_index == -1 || !check_visibility({this->tiles[i].position.x/ TILE_SIZE , this->tiles[i].position.y/TILE_SIZE }, {1,1}, *this->Camera))
         {
             continue;
         }
@@ -60,5 +61,7 @@ void TilemapRenderer::draw()
         rect.h = adjustedSize(tileSizeY, this->Camera->zoom);
 
         tileset->draw_tile(this->tiles[i].tile_index, rect.x, rect.y, rect.w, rect.h);
+        x++;
     }
+    this->Camera->logger->log("Tiles drawn: " + std::to_string(x));
 }

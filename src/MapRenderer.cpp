@@ -15,6 +15,18 @@ MapRenderer::MapRenderer(camera *cam ,const map_struct* map)
     this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_2 ,map->map_pos_x, map->map_pos_y, map->width , map->height , this->tilesets[2]));
 }
 
+MapRenderer::~MapRenderer()
+{
+    for(int i = 0; i < this->tilesets.size(); i++)
+    {
+        delete this->tilesets[i];
+    }
+    for(int i = 0; i < this->tilemap_renderers.size(); i++)
+    {
+        delete this->tilemap_renderers[i];
+    }
+}
+
 int MapRenderer::get_uid()
 {
     return this->map->uid;
