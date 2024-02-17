@@ -13,6 +13,8 @@ class OverworldRenderer
         void draw();
     private:
         bool check_map_visibility(const map_struct* map);
+        void check_tilesets_usage();
         camera *Camera;
         std::vector<MapRenderer*> map_renderers;
+        std::vector<Tileset*> tilesets;
 };

@@ -31,7 +31,45 @@ void OverworldRenderer::check_maps_visibility()
             }
             if(!present)
             {
-                this->map_renderers.push_back(new MapRenderer(this->Camera, overworld_maps[i]));
+                bool tileset_present = false;
+                std::vector<const tileset*> tilesets_vector;
+                tilesets_vector.push_back(overworld_maps[i]->tile_layer_0.tileset);
+                tilesets_vector.push_back(overworld_maps[i]->tile_layer_1.tileset);
+                tilesets_vector.push_back(overworld_maps[i]->tile_layer_2.tileset);
+
+                for (int k = 0; k < tilesets_vector.size(); k++)
+                {
+                    for (int l = 0; l < this->tilesets.size(); l++)
+                    {
+                        if (tilesets_vector[k]->uid == this->tilesets[l]->get_uid())
+                        {
+                            tileset_present = true;
+                            break;
+                        }
+                    }
+                    if (!tileset_present)
+                    {
+                        this->tilesets.push_back(new Tileset(tilesets_vector[k], this->Camera));
+                        this->Camera->logger->log("Tileset " + std::to_string(tilesets_vector[k]->uid) + " loaded");
+                    }
+                }
+
+                std::vector<Tileset*> tilesets_vector2;
+                for (int k = 0; k < tilesets_vector.size(); k++)
+                {
+                    for (int l = 0; l < this->tilesets.size(); l++)
+                    {
+                        if (tilesets_vector[k]->uid == this->tilesets[l]->get_uid())
+                        {
+                            tilesets_vector2.push_back(this->tilesets[l]);
+                            break;
+                        }
+                    }
+                }
+
+
+
+                this->map_renderers.push_back(new MapRenderer(this->Camera, overworld_maps[i] , tilesets_vector2[0], tilesets_vector2[1], tilesets_vector2[2]));
                 this->Camera->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " loaded");
             }
         }
@@ -47,6 +85,33 @@ void OverworldRenderer::check_maps_visibility()
                     break;
                 }
             }
+        }
+    }
+    this->check_tilesets_usage();
+}
+
+void OverworldRenderer::check_tilesets_usage()
+{
+    for (int i = 0; i < this->tilesets.size(); i++)
+    {
+        bool present = false;
+        for (int j = 0; j < this->map_renderers.size(); j++)
+        {
+            std::vector<int> tilesets_uid = this->map_renderers[j]->get_tilesets_uid();
+            for (int k = 0; k < tilesets_uid.size(); k++)
+            {
+                if (tilesets_uid[k] == this->tilesets[i]->get_uid())
+                {
+                    present = true;
+                    break;
+                }
+            }
+        }
+        if (!present)
+        {
+            this->Camera->logger->log("Tileset " + std::to_string(this->tilesets[i]->get_uid()) + " unloaded");
+            delete this->tilesets[i];
+            this->tilesets.erase(this->tilesets.begin() + i);
         }
     }
 }

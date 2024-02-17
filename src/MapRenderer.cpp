@@ -1,26 +1,18 @@
 #include <MapRenderer.hpp>
 
-MapRenderer::MapRenderer(camera *cam ,const map_struct* map)
+MapRenderer::MapRenderer(camera *cam ,const map_struct* map, Tileset* ts0, Tileset* ts1, Tileset* ts2)
 {
     this->Camera = cam;
 
     this->map = map;
 
-    this->tilesets.push_back(new Tileset(map->tile_layer_0.tileset, cam));
-    this->tilesets.push_back(new Tileset(map->tile_layer_1.tileset, cam));
-    this->tilesets.push_back(new Tileset(map->tile_layer_2.tileset, cam));
-
-    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_0 ,map->map_pos_x, map->map_pos_y, map->width , map->height , this->tilesets[0]));
-    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_1 ,map->map_pos_x, map->map_pos_y, map->width , map->height , this->tilesets[1]));
-    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_2 ,map->map_pos_x, map->map_pos_y, map->width , map->height , this->tilesets[2]));
+    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_0 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts0));
+    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_1 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts1));
+    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_2 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts2));
 }
 
 MapRenderer::~MapRenderer()
 {
-    for(int i = 0; i < this->tilesets.size(); i++)
-    {
-        delete this->tilesets[i];
-    }
     for(int i = 0; i < this->tilemap_renderers.size(); i++)
     {
         delete this->tilemap_renderers[i];

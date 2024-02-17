@@ -28,6 +28,10 @@ Tileset::Tileset(const tileset* tileset, camera* cam)
 Tileset::~Tileset()
 {
     SDL_DestroyTexture(this->texture);
+    for(int i = 0; i < this->tile_rects.size(); i++)
+    {
+        delete this->tile_rects[i];
+    }
 }
 
 int Tileset::get_uid()
