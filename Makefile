@@ -27,6 +27,8 @@ all: include_ressources $(ASMOBJS) $(TARGET)
 include_ressources:
 	@echo "Running include_ressources..."
 	@python include_ressources.py
+	@echo "Running include_fonts..."
+	@python include_fonts.py
 	@echo "Running include_tilesets..."
 	@python include_tilesets.py
 	@echo "Running include_maps..."
