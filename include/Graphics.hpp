@@ -13,4 +13,11 @@ struct image_ressource
 	const int* image_size;
 };
 
+struct colorRGB
+{
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+};
+
 SDL_Texture* Load_Texture(image_ressource image_ressource, SDL_Renderer* renderer);

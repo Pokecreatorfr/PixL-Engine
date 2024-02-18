@@ -1,9 +1,10 @@
 import os
 from PIL import Image, ImageDraw, ImageFont
 import re
+
 def parse_config_file(file_path):
     # Modèle d'expression régulière pour rechercher les directives #define avec des listes
-    define_pattern = re.compile(r'#define\s+(\w+)\s+(?:\{([^}]+)\}|(\d+))', re.MULTILINE)
+    define_pattern = re.compile(r'const\s+int\s+(\w+)\s*\[\s*\]\s*=\s*\{([^}]+)\}', re.MULTILINE)
 
     # Dictionnaire pour stocker les valeurs des #define
     define_values = {}
@@ -16,19 +17,21 @@ def parse_config_file(file_path):
 
         # Stockage des résultats dans le dictionnaire
         for match in matches:
-            define_name, define_list, define_value = match
+            define_name, define_list = match
 
-            if define_list:
-                # Si c'est une liste, séparez les valeurs et convertissez-les en entiers
-                values = [int(x.strip()) for x in define_list.split(',')]
-                define_values[define_name] = values
-            else:
-                define_values[define_name] = int(define_value)
+            # Si c'est une liste, séparez les valeurs et convertissez-les en entiers
+            values = [int(x.strip()) for x in define_list.split(',')]
+            define_values[define_name] = values
 
     return define_values
+
 # Remplacez 'chemin/vers/votre/config.hpp' par le chemin réel de votre fichier
 config_file_path = 'include/const/Config.hpp'
 result = parse_config_file(config_file_path)
+
+# if result['FONTS_SIZES'] is an integer, convert it to a list
+if isinstance(result['fonts_sizes'], int):
+    result['fonts_sizes'] = [result['fonts_sizes']]
 
 fonts_files = [f for f in os.listdir('data/fonts') if f.lower().endswith(('.ttf'))]
 images_path = 'graphics/fonts'
@@ -40,7 +43,7 @@ for file in os.listdir(images_path):
 char_per_line = 255
 char_per_row = 4
 for font in fonts_files:
-    for size in result['FONTS_SIZES']:
+    for size in result['fonts_sizes']:
         font_path = os.path.join('data/fonts', font).replace("\\","/")
         font_file = ImageFont.truetype(font_path, size)
         image = Image.new('RGBA', (size * char_per_line, size * char_per_row), color=(0, 0, 0, 0))

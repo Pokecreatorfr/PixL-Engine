@@ -22,7 +22,7 @@ ASMOBJS = $(patsubst $(ASMDIR)/%.asm,$(OBJDIR)/%.o,$(ASMSRCS))
 
 TARGET = main
 
-all: include_ressources $(ASMOBJS) $(TARGET)
+all: include_ressources .WAIT $(ASMOBJS) $(TARGET)
 
 include_ressources:
 	@echo "Running include_ressources..."
@@ -36,6 +36,8 @@ include_ressources:
 	@echo "Running include_maps..."
 	@python include_maps.py
 	@mkdir -p $(OBJDIR)
+
+.NOTPARALLEL: include_ressources
 
 $(ASMOBJS): $(OBJDIR)/%.o: $(ASMDIR)/%.asm
 	@echo "Assembling $<..."

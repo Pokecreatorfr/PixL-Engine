@@ -1,8 +1,9 @@
 import os
 import re
+
 def parse_config_file(file_path):
     # Modèle d'expression régulière pour rechercher les directives #define avec des listes
-    define_pattern = re.compile(r'#define\s+(\w+)\s+(?:\{([^}]+)\}|(\d+))', re.MULTILINE)
+    define_pattern = re.compile(r'const\s+int\s+(\w+)\s*\[\s*\]\s*=\s*\{([^}]+)\}', re.MULTILINE)
 
     # Dictionnaire pour stocker les valeurs des #define
     define_values = {}
@@ -15,19 +16,18 @@ def parse_config_file(file_path):
 
         # Stockage des résultats dans le dictionnaire
         for match in matches:
-            define_name, define_list, define_value = match
+            define_name, define_list = match
 
-            if define_list:
-                # Si c'est une liste, séparez les valeurs et convertissez-les en entiers
-                values = [int(x.strip()) for x in define_list.split(',')]
-                define_values[define_name] = values
-            else:
-                define_values[define_name] = int(define_value)
+            # Si c'est une liste, séparez les valeurs et convertissez-les en entiers
+            values = [int(x.strip()) for x in define_list.split(',')]
+            define_values[define_name] = values
 
     return define_values
-
 config_file_path = 'include/const/Config.hpp'
 result = parse_config_file(config_file_path)
+
+if isinstance(result['fonts_sizes'], int):
+    result['fonts_sizes'] = [result['fonts_sizes']]
 
 def generate_asm_image_entry(image_filename):
     base_name = os.path.splitext(os.path.basename(image_filename))[0]
@@ -85,7 +85,7 @@ i = 0
 
 for font in ttf_list:
     font_list = []
-    for size in result['FONTS_SIZES']:
+    for size in result['fonts_sizes']:
         font_list.append(f'font_{font}_{size}')
         font_hpp_file += f'const font font_{font}_{size} = {{{size} , &font_{size}_{font}_ressource }};\n'
     font_hpp_file += f'\nconst font_ressource font_ressource_{font} = {{{i},{{'

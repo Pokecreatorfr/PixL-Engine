@@ -4,6 +4,9 @@
 #include <Log.hpp>
 #include <OverworldRenderer.hpp>
 #include <generated/map2cpp.hpp>
+#include <generated/font2cpp.hpp>
+#include <FontsRenderer.hpp>
+
 using namespace std;
 using namespace std::chrono;
 
@@ -37,6 +40,7 @@ int main(int argc, char* argv[])
 	Camera->logger = new Logger();
 	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
 	OverworldRenderer* overworld = new OverworldRenderer(Camera);
+	FontsRenderer* font = new FontsRenderer(Camera, &font_ressource_m5x7);
 
 	int counter = 0;
 
@@ -103,6 +107,7 @@ int main(int argc, char* argv[])
 		// draw map
 		overworld->check_maps_visibility();
 		overworld->draw();
+		font->render_text(100, 100, 32, 32, 32, u's', {0, 0, 0});
 
 		// update screen
 		SDL_RenderPresent(Camera->renderer);
