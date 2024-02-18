@@ -1,4 +1,33 @@
 import os
+import re
+def parse_config_file(file_path):
+    # Modèle d'expression régulière pour rechercher les directives #define avec des listes
+    define_pattern = re.compile(r'#define\s+(\w+)\s+(?:\{([^}]+)\}|(\d+))', re.MULTILINE)
+
+    # Dictionnaire pour stocker les valeurs des #define
+    define_values = {}
+
+    with open(file_path, 'r') as file:
+        content = file.read()
+
+        # Recherche des correspondances dans le contenu du fichier
+        matches = define_pattern.findall(content)
+
+        # Stockage des résultats dans le dictionnaire
+        for match in matches:
+            define_name, define_list, define_value = match
+
+            if define_list:
+                # Si c'est une liste, séparez les valeurs et convertissez-les en entiers
+                values = [int(x.strip()) for x in define_list.split(',')]
+                define_values[define_name] = values
+            else:
+                define_values[define_name] = int(define_value)
+
+    return define_values
+
+config_file_path = 'include/const/Config.hpp'
+result = parse_config_file(config_file_path)
 
 def generate_asm_image_entry(image_filename):
     base_name = os.path.splitext(os.path.basename(image_filename))[0]
@@ -39,3 +68,34 @@ with open('include\generated\image2cpp.hpp', 'a') as hpp_file:
     for image in image_files:
         resource_entry = generate_hpp_resource_entry(image)
         hpp_file.write(resource_entry)
+
+
+ttf_list =[]
+font_hpp_file = '#pragma once\n#include <Fonts.hpp>\n#include <generated/image2cpp.hpp>\n\n'
+for image in image_files:
+    ttf_list.append(image.split('_')[1])
+
+# delete duplicate
+ttf_list = list(dict.fromkeys(ttf_list))
+
+#delete extension
+ttf_list = [os.path.splitext(x)[0] for x in ttf_list]
+
+i = 0
+
+for font in ttf_list:
+    font_list = []
+    for size in result['FONTS_SIZES']:
+        font_list.append(f'font_{font}_{size}')
+        font_hpp_file += f'const font font_{font}_{size} = {{{size} , &font_{size}_{font}_ressource }};\n'
+    font_hpp_file += f'\nconst font_ressource font_ressource_{font} = {{{i},{{'
+    for i in range(len(font_list)):
+        font_hpp_file += f'&{font_list[i]}'
+        if i != len(font_list) - 1:
+            font_hpp_file += ', '
+    font_hpp_file += '}};\n\n'
+
+    
+
+with open('include/generated/font2cpp.hpp', 'w') as hpp_file:
+    hpp_file.write(font_hpp_file)

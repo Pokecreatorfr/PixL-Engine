@@ -5,6 +5,7 @@ obj/
 asm/
 
 include/generated/
+graphics/fonts/
 *.asm
 project.ini
 asm/graphic.asm

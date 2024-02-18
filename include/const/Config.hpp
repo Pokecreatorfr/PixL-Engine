@@ -10,3 +10,5 @@
 // definie le nombre de tiles affichées en largeur et en hauteur
 #define VIEW_WIDTH 20
 #define VIEW_HEIGHT 15
+
+#define FONTS_SIZES {16 , 32 , 64}
