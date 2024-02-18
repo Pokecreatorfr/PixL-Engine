@@ -63,3 +63,9 @@ void FontsRenderer::render_text(int x, int y, int h, int w, int font_size, char1
     SDL_RenderCopy(cam->renderer, font_textures[font_index], &src, &dst);
     return;
 }
+
+void FontsRenderer::render_text(int x, int y, int h, int w, int font_size, const char16_t* text, colorRGB color)
+{
+    char16_t tmp = (char16_t)*text;
+    this->render_text(x, y, h, w, font_size, tmp, color);
+}
