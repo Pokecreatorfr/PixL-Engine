@@ -1,0 +1,1 @@
+- utiliser des char16_t[] pour les chaînes de caractères (dialogues par exemple)
