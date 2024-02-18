@@ -107,7 +107,14 @@ int main(int argc, char* argv[])
 		// draw map
 		overworld->check_maps_visibility();
 		overworld->draw();
-		font->render_text(100, 100, 32, 32, 32, u's', {0, 0, 0});
+		
+		uint8_t tr = static_cast<int>(255 * sin(0.01 * counter));
+		uint8_t tg = static_cast<int>(255 * sin(0.01 * counter + 2));
+		uint8_t tb = static_cast<int>(255 * sin(0.01 * counter + 4));
+		// draw text
+		font->render_text(100, 100, 64, 64, 32, u'R', {tr, tg, tb});
+		font->render_text(132, 100, 64, 64, 32, u'G', {tr, tg, tb});
+		font->render_text(164, 100, 64, 64, 32, u'B', {tr, tg, tb});
 
 		// update screen
 		SDL_RenderPresent(Camera->renderer);
