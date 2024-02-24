@@ -6,6 +6,7 @@
 #include <generated/map2cpp.hpp>
 #include <generated/font2cpp.hpp>
 #include <FontsRenderer.hpp>
+#include <Cinematics.hpp>
 
 using namespace std;
 using namespace std::chrono;
