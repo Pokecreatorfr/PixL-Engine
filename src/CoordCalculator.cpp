@@ -49,13 +49,9 @@ void CoordCalculator::adjust_coords(){
     for (int i = 0; i < int_to_adjusts.size(); i++){
         if (int_to_adjusts[i]->type == WIDTH){
             *int_to_adjusts[i]->coord = int_to_adjusts[i]->size * Camera->size.x; 
-            Camera->logger->log("coord adjusted to " + std::to_string(*int_to_adjusts[i]->coord));
-            Camera->logger->log("size.x is " + std::to_string(Camera->size.x));
-            Camera->logger->log("int_to_adjusts[i]->size is " + std::to_string(int_to_adjusts[i]->size));
         }
         else if (int_to_adjusts[i]->type == HEIGHT){
             *int_to_adjusts[i]->coord = int_to_adjusts[i]->size * Camera->size.y;
-            Camera->logger->log("coord adjusted to " + std::to_string(*int_to_adjusts[i]->coord));
         }
     }
 }

@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
 
 	// new camera struct
 	camera* Camera = new camera();
-	Camera->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	Camera->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 	Camera->position.x = 0;
 	Camera->position.y = 0;
 	Camera->size.x = WINDOW_WIDTH;
@@ -53,6 +53,7 @@ int main(int argc, char* argv[])
 	lifebar_element->h = nullptr;
 	lifebar_element->x = new int(100);
 	lifebar_element->y = new int(0);
+	lifebar_element->font_renderer = font;
 
 	int pv = 100;
 	int max_pv = 100;
