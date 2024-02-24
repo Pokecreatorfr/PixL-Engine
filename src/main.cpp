@@ -7,6 +7,8 @@
 #include <generated/font2cpp.hpp>
 #include <FontsRenderer.hpp>
 #include <Cinematics.hpp>
+#include <GuiElements.hpp>
+#include <CoordCalculator.hpp>
 
 using namespace std;
 using namespace std::chrono;
@@ -42,6 +44,30 @@ int main(int argc, char* argv[])
 	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
 	OverworldRenderer* overworld = new OverworldRenderer(Camera);
 	FontsRenderer* font = new FontsRenderer(Camera, &font_ressource_m5x7);
+	GuiRenderer* gui = new GuiRenderer(Camera);
+
+	gui_element* lifebar_element = new gui_element();
+	lifebar_element->PtrGui = lifebar;
+	lifebar_element->priority = 0;
+	lifebar_element->w = new int(104);
+	lifebar_element->h = nullptr;
+	lifebar_element->x = new int(100);
+	lifebar_element->y = new int(0);
+
+	int pv = 100;
+	int max_pv = 100;
+	gui_param lifebar_param;
+	lifebar_param.int_param1 = &pv;
+	lifebar_param.int_param2 = &max_pv;
+	lifebar_element->param = lifebar_param;
+
+	gui->add_gui_element(lifebar_element);
+
+	CoordCalculator* coord_calculator = new CoordCalculator(Camera);
+	coord_calculator->add_coord_to_adjust(lifebar_element->x, WIDTH, 0.8);
+	coord_calculator->add_coord_to_adjust(lifebar_element->w, WIDTH, 0.2);
+	coord_calculator->adjust_coords();
+
 
 	int counter = 0;
 
@@ -68,6 +94,7 @@ int main(int argc, char* argv[])
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED)
 				{
 					SDL_GetWindowSize(window, &Camera->size.x, &Camera->size.y);
+					coord_calculator->adjust_coords();
 				}
 			}
 
@@ -97,6 +124,21 @@ int main(int argc, char* argv[])
 					case SDLK_KP_MINUS:
 						Camera->zoom -= 0.01f;
 						break;
+					case SDLK_p :
+						if (pv > 0)
+						{
+							pv -= 1;
+							Camera->logger->log("pv : " + to_string(pv));
+						}
+						break;
+					case SDLK_m :
+						if (pv < max_pv)
+						{
+							pv += 1;
+							Camera->logger->log("pv : " + to_string(pv));
+						}
+						break;
+					
 				}
 			}
 		}
@@ -116,6 +158,9 @@ int main(int argc, char* argv[])
 		font->render_text(100, 100, 64, 64, 32, u'R', {tr, tg, tb});
 		font->render_text(132, 100, 64, 64, 32, u'G', {tr, tg, tb});
 		font->render_text(164, 100, 64, 64, 32, u'B', {tr, tg, tb});
+
+		// draw gui
+		gui->draw_gui();
 
 		// update screen
 		SDL_RenderPresent(Camera->renderer);
