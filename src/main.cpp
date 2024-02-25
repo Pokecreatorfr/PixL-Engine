@@ -62,11 +62,29 @@ int main(int argc, char* argv[])
 	lifebar_param.int_param2 = &max_pv;
 	lifebar_element->param = lifebar_param;
 
+	gui_element* caminfo_element = new gui_element();
+	caminfo_element->PtrGui = caminfo;
+	caminfo_element->priority = 0;
+	caminfo_element->w = new int(100);
+	caminfo_element->h = nullptr;
+	caminfo_element->x = new int(0);
+	caminfo_element->y = new int(0);
+	caminfo_element->font_renderer = font;
+
+	gui_param caminfo_param;
+	caminfo_element->param = caminfo_param;
+	bool* caminfo_visibility = &caminfo_element->param.visible;
+	*caminfo_visibility = false;
+
 	gui->add_gui_element(lifebar_element);
+	gui->add_gui_element(caminfo_element);
+
+
 
 	CoordCalculator* coord_calculator = new CoordCalculator(Camera);
 	coord_calculator->add_coord_to_adjust(lifebar_element->x, WIDTH, 0.8);
 	coord_calculator->add_coord_to_adjust(lifebar_element->w, WIDTH, 0.2);
+	coord_calculator->add_coord_to_adjust(caminfo_element->w, WIDTH, 0.3);
 	coord_calculator->adjust_coords();
 
 
@@ -123,7 +141,7 @@ int main(int argc, char* argv[])
 						Camera->zoom += 0.1f;
 						break;
 					case SDLK_KP_MINUS:
-						Camera->zoom -= 0.01f;
+						if (Camera->zoom > 0.1f)Camera->zoom -= 0.1f;
 						break;
 					case SDLK_m :
 						if (pv > 0)
@@ -138,6 +156,9 @@ int main(int argc, char* argv[])
 							pv += 1;
 							Camera->logger->log("pv : " + to_string(pv));
 						}
+						break;
+					case SDLK_o :
+						*caminfo_visibility = !*caminfo_visibility;
 						break;
 					
 				}

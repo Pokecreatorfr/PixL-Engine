@@ -15,6 +15,7 @@ struct gui_param
     SDL_Color* color_param1 = nullptr; // if not used, set to nullptr
     SDL_Color* color_param2 = nullptr; // if not used, set to nullptr
     std::vector<int>* int_vector_param1 = nullptr; // if not used, set to nullptr
+    bool visible = true;
 };
 
 struct gui_element
