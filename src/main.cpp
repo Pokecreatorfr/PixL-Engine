@@ -125,14 +125,14 @@ int main(int argc, char* argv[])
 					case SDLK_KP_MINUS:
 						Camera->zoom -= 0.01f;
 						break;
-					case SDLK_p :
+					case SDLK_m :
 						if (pv > 0)
 						{
 							pv -= 1;
 							Camera->logger->log("pv : " + to_string(pv));
 						}
 						break;
-					case SDLK_m :
+					case SDLK_p :
 						if (pv < max_pv)
 						{
 							pv += 1;
