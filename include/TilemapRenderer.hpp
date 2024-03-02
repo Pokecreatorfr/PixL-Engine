@@ -1,7 +1,7 @@
 #pragma once 
 #include <vector>
 #include <SDL2/SDL.h>
-#include <GlobalsStructs.hpp>
+#include <Camera.hpp>
 #include <MapStruct.hpp>
 #include <maths.hpp>
 
@@ -18,7 +18,7 @@ struct Tile
 class TilemapRenderer
 {
     public:
-        TilemapRenderer(camera *cam ,const tiles_layer* tl ,int x , int y , int w , int h ,  Tileset* ts);
+        TilemapRenderer(const tiles_layer* tl ,int x , int y , int w , int h ,  Tileset* ts);
         ~TilemapRenderer();
         int get_height();
         int get_width();
@@ -26,7 +26,7 @@ class TilemapRenderer
     private:
         int height;
         int width;
-        camera* Camera;
+        Camera* Camera;
         std::vector<Tile> tiles;
         Tileset* tileset;
 };

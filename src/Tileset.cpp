@@ -1,14 +1,14 @@
 #include <Tileset.hpp>
 
-Tileset::Tileset(const tileset* tileset, camera* cam)
+Tileset::Tileset(const tileset* tileset)
 {
     this->uid = tileset->uid;
     this->tileset_width = tileset->tileset_width;
     this->tileset_height = tileset->tileset_height;
 
-    this->Camera = cam;
+    this->Camera = Camera::GetInstance();
 
-    this->texture = Load_Texture(*tileset->ressource, cam->renderer);
+    this->texture = Load_Texture(*tileset->ressource, this->Camera->GetRenderer());
     
     for(int i = 0; i < tileset->tileset_height; i++)
     {
@@ -52,7 +52,7 @@ int Tileset::get_tileset_height()
 void Tileset::draw_tile(int tile_index, int x, int y , int w, int h)
 {
     SDL_Rect dest = {x, y, w, h};
-    SDL_RenderCopy(this->Camera->renderer, this->texture, this->tile_rects[get_tile_index(tile_index)], &dest);
+    SDL_RenderCopy(this->Camera->GetRenderer(), this->texture, this->tile_rects[get_tile_index(tile_index)], &dest);
 }
 
 int Tileset::get_tile_index(int tile_index)

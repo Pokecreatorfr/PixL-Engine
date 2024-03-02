@@ -1,9 +1,9 @@
 #include <TilemapRenderer.hpp>
 
 
-TilemapRenderer::TilemapRenderer(camera* cam ,const tiles_layer* tl ,int x, int y , int w , int h ,  Tileset* ts)
+TilemapRenderer::TilemapRenderer(const tiles_layer* tl ,int x, int y , int w , int h ,  Tileset* ts)
 {
-    this->Camera = cam;
+    this->Camera = Camera::GetInstance();
     this->height = h;
     this->width = w;
     this->tileset = ts;
@@ -39,7 +39,7 @@ void TilemapRenderer::draw()
 {
     for(int i = 0; i < this->tiles.size(); i++)
     {
-        if (this->tiles[i].tile_index == -1 || !check_visibility({this->tiles[i].position.x/ TILE_SIZE , this->tiles[i].position.y/TILE_SIZE }, {1,1}, *this->Camera))
+        if (this->tiles[i].tile_index == -1 || !check_visibility({this->tiles[i].position.x/ TILE_SIZE , this->tiles[i].position.y/TILE_SIZE }, {1,1}, this->Camera))
         {
             continue;
         }
@@ -52,12 +52,12 @@ void TilemapRenderer::draw()
 
 
 
-        rect.x = static_cast<int>((tileX - this->Camera->position.x) * this->Camera->zoom + Camera->size.x / 2);
-        rect.y = static_cast<int>((tileY - this->Camera->position.y) * this->Camera->zoom + Camera->size.y / 2);
+        rect.x = static_cast<int>((tileX - this->Camera->GetPosition()->x) * *this->Camera->GetZoom() + Camera->GetSize()->x / 2);
+        rect.y = static_cast<int>((tileY - this->Camera->GetPosition()->y) * *this->Camera->GetZoom() + Camera->GetSize()->y / 2);
 
         // Ajustez les dimensions en fonction du zoom et assurez-vous qu'elles sont des tailles rondes
-        rect.w = adjustedSize(tileSizeX, this->Camera->zoom);
-        rect.h = adjustedSize(tileSizeY, this->Camera->zoom);
+        rect.w = adjustedSize(tileSizeX, *this->Camera->GetZoom());
+        rect.h = adjustedSize(tileSizeY, *this->Camera->GetZoom());
 
         tileset->draw_tile(this->tiles[i].tile_index, rect.x, rect.y, rect.w, rect.h);
     }

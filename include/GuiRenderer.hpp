@@ -20,7 +20,7 @@ struct gui_param
 
 struct gui_element
 {
-    void (*PtrGui)(camera*, int*  , int*  , int*  , int*  , std::vector<SDL_Texture*>*, FontsRenderer*, gui_param );
+    void (*PtrGui)(Camera*, int*  , int*  , int*  , int*  , std::vector<SDL_Texture*>*, FontsRenderer*, gui_param );
     uint16_t priority; // lower is drawn first
     int* w;
     int* h;
@@ -34,8 +34,12 @@ struct gui_element
 
 class GuiRenderer
 {
+    protected:
+        GuiRenderer();
+        static GuiRenderer* instance_;
+
     public:
-        GuiRenderer(camera* cam);
+        static GuiRenderer* GetInstance();
         ~GuiRenderer();
         int add_gui_element(gui_element* element);
         void remove_gui_element(int uid);
@@ -44,5 +48,5 @@ class GuiRenderer
 
     private:
         std::vector<gui_element*> elements;
-        camera* Camera;
+        Camera* Camera;
 };

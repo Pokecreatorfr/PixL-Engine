@@ -5,6 +5,17 @@ Logger::Logger()
     log_file = fopen(log_file_path.c_str(),"w");
 }
 
+Logger* Logger::instance_ = nullptr;
+
+Logger* Logger::GetInstance()
+{
+    if (instance_ == nullptr)
+    {
+        instance_ = new Logger();
+    }
+    return instance_;
+}
+
 Logger::~Logger()
 {
     fclose(log_file);

@@ -1,9 +1,10 @@
 #include <OverworldRenderer.hpp>
 
 
-OverworldRenderer::OverworldRenderer(camera *cam)
+OverworldRenderer::OverworldRenderer()
 {
-    this->Camera = cam;
+    this->Camera = Camera::GetInstance();
+    this->logger = Logger::GetInstance();
 }
 
 OverworldRenderer::~OverworldRenderer()
@@ -49,8 +50,8 @@ void OverworldRenderer::check_maps_visibility()
                     }
                     if (!tileset_present)
                     {
-                        this->tilesets.push_back(new Tileset(tilesets_vector[k], this->Camera));
-                        this->Camera->logger->log("Tileset " + std::to_string(tilesets_vector[k]->uid) + " loaded");
+                        this->tilesets.push_back(new Tileset(tilesets_vector[k]));
+                        this->logger->log("Tileset " + std::to_string(tilesets_vector[k]->uid) + " loaded");
                     }
                 }
 
@@ -69,8 +70,8 @@ void OverworldRenderer::check_maps_visibility()
 
 
 
-                this->map_renderers.push_back(new MapRenderer(this->Camera, overworld_maps[i] , tilesets_vector2[0], tilesets_vector2[1], tilesets_vector2[2]));
-                this->Camera->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " loaded");
+                this->map_renderers.push_back(new MapRenderer(overworld_maps[i] , tilesets_vector2[0], tilesets_vector2[1], tilesets_vector2[2]));
+                this->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " loaded");
             }
         }
         else
@@ -81,7 +82,7 @@ void OverworldRenderer::check_maps_visibility()
                 {
                     delete this->map_renderers[j];
                     this->map_renderers.erase(this->map_renderers.begin() + j);
-                    this->Camera->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " unloaded");
+                    this->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " unloaded");
                     break;
                 }
             }
@@ -109,7 +110,7 @@ void OverworldRenderer::check_tilesets_usage()
         }
         if (!present)
         {
-            this->Camera->logger->log("Tileset " + std::to_string(this->tilesets[i]->get_uid()) + " unloaded");
+            this->logger->log("Tileset " + std::to_string(this->tilesets[i]->get_uid()) + " unloaded");
             delete this->tilesets[i];
             this->tilesets.erase(this->tilesets.begin() + i);
         }
@@ -120,7 +121,7 @@ bool OverworldRenderer::check_map_visibility(const map_struct* map)
 {
     coord_2d map_position = {map->map_pos_x, map->map_pos_y};
     coord_2d map_size = {map->width, map->height};
-    return check_visibility(map_position, map_size, *this->Camera);
+    return check_visibility(map_position, map_size, this->Camera);
 }
 
 void OverworldRenderer::draw()

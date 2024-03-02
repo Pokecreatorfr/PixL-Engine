@@ -1,7 +1,7 @@
 #pragma once
 #include <const/Config.hpp>
 #include <Graphics.hpp>
-#include <GlobalsStructs.hpp>
+#include <Camera.hpp>
 
 struct tile_animation
 {
@@ -24,7 +24,7 @@ struct tileset
 class Tileset
 {
     public:
-        Tileset(const tileset* tileset, camera* cam);
+        Tileset(const tileset* tileset);
         ~Tileset();
         int get_uid();
         int get_tileset_width();
@@ -37,6 +37,6 @@ class Tileset
         SDL_Texture *texture;
         std::vector<SDL_Rect*> tile_rects;
         std::vector<tile_animation> animations;
-        camera* Camera;
+        Camera* Camera;
         int get_tile_index(int tile_index);
 };

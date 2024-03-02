@@ -1,14 +1,14 @@
 #include <MapRenderer.hpp>
 
-MapRenderer::MapRenderer(camera *cam ,const map_struct* map, Tileset* ts0, Tileset* ts1, Tileset* ts2)
+MapRenderer::MapRenderer(const map_struct* map, Tileset* ts0, Tileset* ts1, Tileset* ts2)
 {
-    this->Camera = cam;
+    this->Camera = Camera::GetInstance();
 
     this->map = map;
 
-    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_0 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts0));
-    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_1 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts1));
-    this->tilemap_renderers.push_back(new TilemapRenderer(cam , &map->tile_layer_2 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts2));
+    this->tilemap_renderers.push_back(new TilemapRenderer(&map->tile_layer_0 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts0));
+    this->tilemap_renderers.push_back(new TilemapRenderer(&map->tile_layer_1 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts1));
+    this->tilemap_renderers.push_back(new TilemapRenderer(&map->tile_layer_2 ,map->map_pos_x, map->map_pos_y, map->width , map->height , ts2));
 }
 
 MapRenderer::~MapRenderer()

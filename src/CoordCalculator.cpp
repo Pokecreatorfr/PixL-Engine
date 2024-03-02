@@ -1,8 +1,8 @@
 #include <CoordCalculator.hpp>
 
 
-CoordCalculator::CoordCalculator(camera* cam){
-    Camera = cam;
+CoordCalculator::CoordCalculator(){
+    Camera = Camera::GetInstance();
 }
 
 CoordCalculator::~CoordCalculator(){
@@ -48,10 +48,10 @@ void CoordCalculator::remove_coord_to_adjust(int uid){
 void CoordCalculator::adjust_coords(){
     for (int i = 0; i < int_to_adjusts.size(); i++){
         if (int_to_adjusts[i]->type == WIDTH){
-            *int_to_adjusts[i]->coord = int_to_adjusts[i]->size * Camera->size.x; 
+            *int_to_adjusts[i]->coord = int_to_adjusts[i]->size * Camera->GetSize()->x; 
         }
         else if (int_to_adjusts[i]->type == HEIGHT){
-            *int_to_adjusts[i]->coord = int_to_adjusts[i]->size * Camera->size.y;
+            *int_to_adjusts[i]->coord = int_to_adjusts[i]->size * Camera->GetSize()->y;
         }
     }
 }

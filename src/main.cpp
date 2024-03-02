@@ -25,26 +25,12 @@ int main(int argc, char* argv[])
 	}
 
 	// create window
-	SDL_Window* window = SDL_CreateWindow("PixL Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-	if (!window)
-	{
-		return 1;
-	}
-	bool quit = false;
-
-	// new camera struct
-	camera* Camera = new camera();
-	Camera->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
-	Camera->position.x = 0;
-	Camera->position.y = 0;
-	Camera->size.x = WINDOW_WIDTH;
-	Camera->size.y = WINDOW_HEIGHT;
-	Camera->zoom = 1.0;
-	Camera->logger = new Logger();
-	Tileset* tileset = new Tileset(&Tileset_tileset1 , Camera);
-	OverworldRenderer* overworld = new OverworldRenderer(Camera);
-	FontsRenderer* font = new FontsRenderer(Camera, &font_ressource_m5x7);
-	GuiRenderer* gui = new GuiRenderer(Camera);
+	Camera* Camera = Camera::GetInstance();
+	Logger* logger = Logger::GetInstance();
+	Tileset* tileset = new Tileset(&Tileset_tileset1);
+	OverworldRenderer* overworld = new OverworldRenderer();
+	FontsRenderer* font = new FontsRenderer(&font_ressource_m5x7);
+	GuiRenderer* gui = GuiRenderer::GetInstance();
 
 	gui_element* lifebar_element = new gui_element();
 	lifebar_element->PtrGui = lifebar;
@@ -81,7 +67,7 @@ int main(int argc, char* argv[])
 
 
 
-	CoordCalculator* coord_calculator = new CoordCalculator(Camera);
+	CoordCalculator* coord_calculator = new CoordCalculator();
 	coord_calculator->add_coord_to_adjust(lifebar_element->x, WIDTH, 0.8);
 	coord_calculator->add_coord_to_adjust(lifebar_element->w, WIDTH, 0.2);
 	coord_calculator->add_coord_to_adjust(caminfo_element->w, WIDTH, 0.3);
@@ -89,6 +75,8 @@ int main(int argc, char* argv[])
 
 
 	int counter = 0;
+
+	bool quit = false;
 
 	// main loop
 	while (!quit)
@@ -112,7 +100,7 @@ int main(int argc, char* argv[])
 			{
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED)
 				{
-					SDL_GetWindowSize(window, &Camera->size.x, &Camera->size.y);
+					SDL_GetWindowSize(Camera->GetWindow(), &Camera->GetSize()->x, &Camera->GetSize()->y);
 					coord_calculator->adjust_coords();
 				}
 			}
@@ -126,35 +114,35 @@ int main(int argc, char* argv[])
 						quit = true;
 						break;
 					case SDLK_UP:
-						Camera->position.y -= 32;
+						Camera->GetPosition()->y -= 32;
 						break;
 					case SDLK_DOWN:
-						Camera->position.y += 32;
+						Camera->GetPosition()->y += 32;
 						break;
 					case SDLK_LEFT:
-						Camera->position.x -= 32;
+						Camera->GetPosition()->x -= 32;
 						break;
 					case SDLK_RIGHT:
-						Camera->position.x += 32;
+						Camera->GetPosition()->x += 32;
 						break;
 					case SDLK_KP_PLUS:
-						Camera->zoom += 0.1f;
+						*Camera->GetZoom() += 0.1f;
 						break;
 					case SDLK_KP_MINUS:
-						if (Camera->zoom > 0.1f)Camera->zoom -= 0.1f;
+						if (*Camera->GetZoom() > 0.1f)*Camera->GetZoom() -= 0.1f;
 						break;
 					case SDLK_m :
 						if (pv > 0)
 						{
 							pv -= 1;
-							Camera->logger->log("pv : " + to_string(pv));
+							logger->log("pv : " + to_string(pv));
 						}
 						break;
 					case SDLK_p :
 						if (pv < max_pv)
 						{
 							pv += 1;
-							Camera->logger->log("pv : " + to_string(pv));
+							logger->log("pv : " + to_string(pv));
 						}
 						break;
 					case SDLK_o :
@@ -166,8 +154,8 @@ int main(int argc, char* argv[])
 		}
 
 		// clear screen
-		SDL_SetRenderDrawColor(Camera->renderer, 0, 0, 0, 255);
-		SDL_RenderClear(Camera->renderer);
+		SDL_SetRenderDrawColor(Camera->GetRenderer(), 0, 0, 0, 255);
+		SDL_RenderClear(Camera->GetRenderer());
 
 		// draw map
 		overworld->check_maps_visibility();
@@ -185,7 +173,7 @@ int main(int argc, char* argv[])
 		gui->draw_gui();
 
 		// update screen
-		SDL_RenderPresent(Camera->renderer);
+		SDL_RenderPresent(Camera->GetRenderer());
 		SDL_Delay(16);
 	}
 

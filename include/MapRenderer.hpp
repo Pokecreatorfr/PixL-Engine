@@ -4,7 +4,7 @@
 class MapRenderer
 {
     public:
-        MapRenderer(camera *cam ,const map_struct* map, Tileset* ts0, Tileset* ts1, Tileset* ts2);
+        MapRenderer(const map_struct* map, Tileset* ts0, Tileset* ts1, Tileset* ts2);
         ~MapRenderer();
         int get_uid();
         int get_width();
@@ -16,7 +16,7 @@ class MapRenderer
         void draw_layer2();
         std::vector<int> get_tilesets_uid();
     private:
-        camera *Camera;
+        Camera *Camera;
         std::vector<TilemapRenderer*> tilemap_renderers;
         const map_struct* map;
         

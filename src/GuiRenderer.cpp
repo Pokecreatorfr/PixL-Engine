@@ -1,8 +1,17 @@
 #include <GuiRenderer.hpp>
 
 
-GuiRenderer::GuiRenderer(camera* cam){
-    Camera = cam;
+GuiRenderer::GuiRenderer(){
+    Camera = Camera::GetInstance();
+}
+
+GuiRenderer* GuiRenderer::instance_ = nullptr;
+
+GuiRenderer* GuiRenderer::GetInstance(){
+    if (instance_ == nullptr){
+        instance_ = new GuiRenderer();
+    }
+    return instance_;
 }
 
 GuiRenderer::~GuiRenderer(){

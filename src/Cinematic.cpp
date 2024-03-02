@@ -1,7 +1,7 @@
 #include <Cinematic.hpp>
 
-Cinematic::Cinematic(camera* cam){
-    Camera = cam;
+Cinematic::Cinematic(){
+    Camera = Camera::GetInstance();
     current_frame = 0;
 }
 
