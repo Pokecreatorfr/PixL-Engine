@@ -6,10 +6,10 @@
 
 
 
-class Sprite
+class SpriteRenderer
 {
     public:
-        Sprite(SDL_Texture* texture, int height, int width);
+        SpriteRenderer(SDL_Texture* texture, int height, int width);
         void Draw_World_coord(coord_2d position , int index);
         void Draw_Screen_coord(coord_2d position , int index);
     private:

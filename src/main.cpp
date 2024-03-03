@@ -9,6 +9,7 @@
 #include <Cinematics.hpp>
 #include <GuiElements.hpp>
 #include <CoordCalculator.hpp>
+#include <Sprite.hpp>
 
 using namespace std;
 using namespace std::chrono;
@@ -74,7 +75,8 @@ int main(int argc, char* argv[])
 	coord_calculator->add_coord_to_adjust(caminfo_element->w, WIDTH, 0.3);
 	coord_calculator->adjust_coords();
 
-
+	SDL_Texture* sprite_texture = Load_Texture( ow_sprite_ressource,  Camera->GetRenderer());
+	SpriteRenderer* sprite = new SpriteRenderer(sprite_texture, 32, 32);
 
 	bool quit = false;
 
@@ -156,6 +158,7 @@ int main(int argc, char* argv[])
 		// draw map
 		overworld->check_maps_visibility();
 		overworld->draw();
+		sprite->Draw_World_coord({18 * TILE_SIZE, 9 * TILE_SIZE}, Camera->GetFrame()/100 % 4);
 		
 		uint8_t tr = static_cast<int>(255 * sin(0.01 * Camera->GetFrame()));
 		uint8_t tg = static_cast<int>(255 * sin(0.01 * Camera->GetFrame() + 2));

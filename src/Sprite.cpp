@@ -1,6 +1,6 @@
 #include "Sprite.hpp"
 
-Sprite::Sprite(SDL_Texture* texture, int height, int width)
+SpriteRenderer::SpriteRenderer(SDL_Texture* texture, int height, int width)
 {
     this->camera = Camera::GetInstance();
     this->texture = texture;
@@ -22,18 +22,21 @@ Sprite::Sprite(SDL_Texture* texture, int height, int width)
     }
 }
 
-void Sprite::Draw_World_coord(coord_2d position, int index)
+void SpriteRenderer::Draw_World_coord(coord_2d position, int index)
 {
-    coord_2d screen_position = {position.x - this->height * *this->camera->GetZoom() , position.y - this->width * *this->camera->GetZoom() / 2};
     SDL_Rect dest;
-    dest.x = screen_position.x;
-    dest.y = screen_position.y;
+    dest.x = (int)((position.x - this->camera->GetPosition()->x) * *this->camera->GetZoom() + this->camera->GetSize()->x / 2);
+    dest.y = (int)((position.y - this->camera->GetPosition()->y) * *this->camera->GetZoom() + this->camera->GetSize()->y / 2);
     dest.w = this->width * *this->camera->GetZoom();
     dest.h = this->height * *this->camera->GetZoom();
     SDL_RenderCopy(this->camera->GetRenderer(), this->texture, &this->frames[index], &dest);
+    #ifdef DEBUG
+    SDL_SetRenderDrawColor(this->camera->GetRenderer(), 255, 0, 0, 255);
+    SDL_RenderDrawRect(this->camera->GetRenderer(), &dest);
+    #endif
 }
 
-void Sprite::Draw_Screen_coord(coord_2d position, int index)
+void SpriteRenderer::Draw_Screen_coord(coord_2d position, int index)
 {
     SDL_Rect dest;
     dest.x = position.x;
