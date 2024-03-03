@@ -10,6 +10,7 @@ Camera::Camera()
     this->size.x = WINDOW_WIDTH;
     this->size.y = WINDOW_HEIGHT;
     this->zoom = 1.0;
+    this->frame = 0;
 }
 
 Camera* Camera::instance_ = nullptr;
@@ -43,6 +44,11 @@ coord_2d* Camera::GetSize()
     return &this->size;
 }
 
+int Camera::GetFrame()
+{
+    return this->frame;
+}
+
 float* Camera::GetZoom()
 {
     return &this->zoom;
@@ -61,4 +67,9 @@ void Camera::SetSize(coord_2d size)
 void Camera::SetZoom(float zoom)
 {
     this->zoom = zoom;
+}
+
+void Camera::addFrame()
+{
+    this->frame++;
 }

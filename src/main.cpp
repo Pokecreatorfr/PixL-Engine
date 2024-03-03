@@ -75,17 +75,12 @@ int main(int argc, char* argv[])
 	coord_calculator->adjust_coords();
 
 
-	int counter = 0;
 
 	bool quit = false;
 
 	// main loop
 	while (!quit)
 	{
-		counter++;
-
-		// debug effect
-		//Camera->zoom = sin(counter / 5000.0f) + 2.0f;
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
@@ -162,9 +157,9 @@ int main(int argc, char* argv[])
 		overworld->check_maps_visibility();
 		overworld->draw();
 		
-		uint8_t tr = static_cast<int>(255 * sin(0.01 * counter));
-		uint8_t tg = static_cast<int>(255 * sin(0.01 * counter + 2));
-		uint8_t tb = static_cast<int>(255 * sin(0.01 * counter + 4));
+		uint8_t tr = static_cast<int>(255 * sin(0.01 * Camera->GetFrame()));
+		uint8_t tg = static_cast<int>(255 * sin(0.01 * Camera->GetFrame() + 2));
+		uint8_t tb = static_cast<int>(255 * sin(0.01 * Camera->GetFrame() + 4));
 		// draw text
 		font->render_text(100, 100, 64, 64, 32, u'R', {tr, tg, tb});
 		font->render_text(132, 100, 64, 64, 32, u'G', {tr, tg, tb});
@@ -175,6 +170,7 @@ int main(int argc, char* argv[])
 
 		// update screen
 		SDL_RenderPresent(Camera->GetRenderer());
+		Camera->addFrame();
 		SDL_Delay(16);
 	}
 
