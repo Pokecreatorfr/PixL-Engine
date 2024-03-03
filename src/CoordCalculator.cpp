@@ -5,6 +5,15 @@ CoordCalculator::CoordCalculator(){
     Camera = Camera::GetInstance();
 }
 
+CoordCalculator* CoordCalculator::instance_ = nullptr;
+
+CoordCalculator* CoordCalculator::GetInstance(){
+    if (instance_ == nullptr){
+        instance_ = new CoordCalculator();
+    }
+    return instance_;
+}
+
 CoordCalculator::~CoordCalculator(){
 }
 

@@ -5,9 +5,9 @@
 
 void lifebar(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Texture*>* textures, FontsRenderer* font_renderer  , gui_param param)
 {
-    if (param.visible)
+    if (*param.bool_ptr_params.at(0))
     {
-        std::string lifestring = std::to_string(*param.int_param1) + "/" + std::to_string(*param.int_param2);
+        std::string lifestring = std::to_string(*param.int_ptr_params.at(0)) + "/" + std::to_string(*param.int_ptr_params.at(1));
         char16_t* lifechar = new char16_t[lifestring.size() + 1];
         for (int i = 0; i < lifestring.size(); i++)
         {
@@ -27,7 +27,7 @@ void lifebar(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Te
         SDL_Rect dest = {0, 0, 104, 47};
         SDL_Rect src = {0, 5, 104, 47};
         SDL_RenderCopy(cam->GetRenderer(), textures->at(1), &src, &dest);
-        int lifebar_size = ((float)*param.int_param1 / (float)*param.int_param2) * 100;
+        int lifebar_size = ((float)*param.int_ptr_params.at(0) / (float)*param.int_ptr_params.at(1)) * 100;
         dest = {2, 2, lifebar_size, 5};
         src = {0, 0, lifebar_size, 5};
         SDL_RenderCopy(cam->GetRenderer(), textures->at(1), &src, &dest);
@@ -45,7 +45,7 @@ void lifebar(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Te
 
 void caminfo(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Texture*>* textures, FontsRenderer* font_renderer  , gui_param param)
 {
-    if (param.visible)
+    if (*param.bool_ptr_params.at(0))
     {
         std::string xstring = "X:" + std::to_string(cam->GetPosition()->x);
         std::string ystring = "Y:" + std::to_string(cam->GetPosition()->y);
@@ -89,6 +89,17 @@ void caminfo(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Te
         SDL_Rect dest = { *x, *y, *w, text_h};
         SDL_SetRenderTarget(cam->GetRenderer(), NULL);
         SDL_RenderCopy(cam->GetRenderer(), textures->at(0), NULL, &dest);
+    }
+    return;
+}
+
+void textbox(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Texture*>* textures, FontsRenderer* font_renderer  , gui_param param)
+{
+    if(textures->size() == 0)
+    {
+        SDL_Texture* render_texture = SDL_CreateTexture(cam->GetRenderer(), SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, *w, *h);
+        textures->push_back(render_texture);
+
     }
     return;
 }

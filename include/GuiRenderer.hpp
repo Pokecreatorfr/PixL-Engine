@@ -4,18 +4,21 @@
 
 struct gui_param
 {
-    int* int_param1 = nullptr ; // if not used, set to nullptr
-    int* int_param2 = nullptr; // if not used, set to nullptr
-    std::string* string_param1 = nullptr; // if not used, set to nullptr
-    std::string* string_param2 = nullptr; // if not used, set to nullptr
-    bool* bool_param1 = nullptr; // if not used, set to nullptr
-    bool* bool_param2 = nullptr; // if not used, set to nullptr
-    float* float_param1 = nullptr; // if not used, set to nullptr
-    float* float_param2 = nullptr; // if not used, set to nullptr
-    SDL_Color* color_param1 = nullptr; // if not used, set to nullptr
-    SDL_Color* color_param2 = nullptr; // if not used, set to nullptr
-    std::vector<int>* int_vector_param1 = nullptr; // if not used, set to nullptr
-    bool visible = true;
+    // values parameters
+    std::vector<int> int_params;  
+    std::vector<float> float_params; 
+    std::vector<std::string> string_params; 
+    std::vector<u16string> u16string_params; 
+    std::vector<bool> bool_params; 
+    std::vector<SDL_Color> color_params; 
+    
+    // pointer parameters
+    std::vector<int*> int_ptr_params; 
+    std::vector<float*> float_ptr_params; 
+    std::vector<std::string*> string_ptr_params; 
+    std::vector<u16string*> u16string_ptr_params; 
+    std::vector<bool*> bool_ptr_params; 
+    std::vector<SDL_Color*> color_ptr_params; 
 };
 
 struct gui_element

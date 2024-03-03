@@ -15,8 +15,11 @@ struct int_to_adjust
 
 class CoordCalculator
 {
-    public:
+    protected:
         CoordCalculator();
+        static CoordCalculator* instance_;
+    public:
+        static CoordCalculator* GetInstance();
         ~CoordCalculator();
         int add_coord_to_adjust(int* coord, int type, float size);
         void remove_coord_to_adjust(int uid);

@@ -23,7 +23,6 @@ int main(int argc, char* argv[])
 	{
 		return 1;
 	}
-
 	// create window
 	Camera* Camera = Camera::GetInstance();
 	Logger* logger = Logger::GetInstance();
@@ -44,8 +43,9 @@ int main(int argc, char* argv[])
 	int pv = 100;
 	int max_pv = 100;
 	gui_param lifebar_param;
-	lifebar_param.int_param1 = &pv;
-	lifebar_param.int_param2 = &max_pv;
+	lifebar_param.int_ptr_params.push_back(&pv);
+	lifebar_param.int_ptr_params.push_back(&max_pv);
+	lifebar_param.bool_ptr_params.push_back(new bool(true));
 	lifebar_element->param = lifebar_param;
 
 	gui_element* caminfo_element = new gui_element();
@@ -59,15 +59,16 @@ int main(int argc, char* argv[])
 
 	gui_param caminfo_param;
 	caminfo_element->param = caminfo_param;
-	bool* caminfo_visibility = &caminfo_element->param.visible;
-	*caminfo_visibility = false;
+	bool* caminfo_visibility = new bool(false);
+	caminfo_element->param.bool_ptr_params.push_back(caminfo_visibility);
+
 
 	gui->add_gui_element(lifebar_element);
 	gui->add_gui_element(caminfo_element);
 
 
 
-	CoordCalculator* coord_calculator = new CoordCalculator();
+	CoordCalculator* coord_calculator = CoordCalculator::GetInstance();
 	coord_calculator->add_coord_to_adjust(lifebar_element->x, WIDTH, 0.8);
 	coord_calculator->add_coord_to_adjust(lifebar_element->w, WIDTH, 0.2);
 	coord_calculator->add_coord_to_adjust(caminfo_element->w, WIDTH, 0.3);
