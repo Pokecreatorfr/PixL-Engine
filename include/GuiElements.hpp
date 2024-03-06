@@ -90,6 +90,9 @@ void caminfo(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Te
         SDL_Rect dest = { *x, *y, *w, text_h};
         SDL_SetRenderTarget(cam->GetRenderer(), NULL);
         SDL_RenderCopy(cam->GetRenderer(), textures->at(0), NULL, &dest);
+        delete[] xchar;
+        delete[] ychar;
+        delete[] zoomchar;
     }
     return;
 }
