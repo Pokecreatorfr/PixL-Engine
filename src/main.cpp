@@ -9,7 +9,7 @@
 #include <Cinematics.hpp>
 #include <GuiElements.hpp>
 #include <CoordCalculator.hpp>
-#include <Sprite.hpp>
+#include <SpriteRenderer.hpp>
 
 using namespace std;
 using namespace std::chrono;
@@ -174,7 +174,7 @@ int main(int argc, char* argv[])
 		// update screen
 		SDL_RenderPresent(Camera->GetRenderer());
 		Camera->addFrame();
-		//SDL_Delay(16);
+		SDL_Delay(16);
 	}
 
 

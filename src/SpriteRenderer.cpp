@@ -1,4 +1,4 @@
-#include "Sprite.hpp"
+#include "SpriteRenderer.hpp"
 
 SpriteRenderer::SpriteRenderer(SDL_Texture* texture, int height, int width)
 {
