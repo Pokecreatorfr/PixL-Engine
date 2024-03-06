@@ -76,9 +76,27 @@ int main(int argc, char* argv[])
 	coord_calculator->adjust_coords();
 
 	SDL_Texture* sprite_texture = Load_Texture( ow_sprite_ressource,  Camera->GetRenderer());
-	SpriteRenderer* sprite = new SpriteRenderer(sprite_texture, 32, 32);
+	SpriteRenderer* spriter = new SpriteRenderer(sprite_texture, 32, 32);
 
 	bool quit = false;
+	
+	sprite* sprite1 = new sprite();
+	sprite1->texture = &ow_sprite_ressource;
+	sprite1->walk_speed = 45;
+	sprite1->run_speed = 15;
+	sprite1->animation_speed = 15;
+	sprite1->width = 32;
+	sprite1->height = 64;
+	sprite1->hitbox = {32, 64};
+	sprite1->face_down = {0};
+	sprite1->face_up = {1};
+	sprite1->face_left = {2};
+	sprite1->face_right = {3};
+	sprite1->walk_down = {4, 5};
+	sprite1->walk_up = {6, 7};
+	sprite1->walk_left = {8, 9};
+	sprite1->walk_right = {10, 11};
+
 
 	// main loop
 	while (!quit)
@@ -158,7 +176,7 @@ int main(int argc, char* argv[])
 		// draw map
 		overworld->check_maps_visibility();
 		overworld->draw();
-		sprite->Draw_World_coord({18 * TILE_SIZE, 9 * TILE_SIZE}, Camera->GetFrame()/100 % 4);
+		spriter->Draw_World_coord({18 * TILE_SIZE, 9 * TILE_SIZE}, Camera->GetFrame()/100 % 4);
 		
 		uint8_t tr = static_cast<int>(255 * sin(0.01 * Camera->GetFrame()));
 		uint8_t tg = static_cast<int>(255 * sin(0.01 * Camera->GetFrame() + 2));

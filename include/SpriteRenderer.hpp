@@ -6,10 +6,13 @@
 
 struct sprite
 {
-    SDL_Texture* texture;
-    int height;
+    const image_ressource* texture;
     int width;
+    int height;
     coord_2d hitbox;
+    int walk_speed; // frame to move to next tile
+    int run_speed; // frame to move to next tile
+    int animation_speed; // frame to change animation
     // boucles d'animation
     std::vector<int> face_down;
     std::vector<int> face_up;
