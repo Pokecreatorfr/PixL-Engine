@@ -121,7 +121,7 @@ bool OverworldRenderer::check_map_visibility(const map_struct* map)
 {
     coord_2d map_position = {map->map_pos_x, map->map_pos_y};
     coord_2d map_size = {map->width, map->height};
-    return check_visibility(map_position, map_size, this->Camera);
+    return check_tile_visibility(map_position, map_size, this->Camera);
 }
 
 void OverworldRenderer::draw()

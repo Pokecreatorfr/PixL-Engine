@@ -39,6 +39,7 @@ void lifebar(Camera* cam, int* w , int* h , int* x , int* y , std::vector<SDL_Te
         int text_h = 47 * *w / 104;
         SDL_Rect dest2 = { *x, *y, *w, text_h};
         SDL_RenderCopy(cam->GetRenderer(), textures->at(0), NULL, &dest2);
+        delete[] lifechar;
     }
     return;
 }

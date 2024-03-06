@@ -48,6 +48,7 @@ int CoordCalculator::add_coord_to_adjust(int* coord, int type, float size){
 void CoordCalculator::remove_coord_to_adjust(int uid){
     for (int i = 0; i < int_to_adjusts.size(); i++){
         if (int_to_adjusts[i]->uid == uid){
+            delete int_to_adjusts[i];
             int_to_adjusts.erase(int_to_adjusts.begin() + i);
             break;
         }

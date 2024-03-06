@@ -13,7 +13,7 @@ int calculateExtraPixels(int originalSize, float zoom)
     return adjusted - originalSize;
 }
 
-bool check_visibility(coord_2d position, coord_2d size, Camera* cam)
+bool check_tile_visibility(coord_2d position, coord_2d size, Camera* cam)
 {
 	float camsx = cam->GetSize()->x / 2;
 	float camsy = cam->GetSize()->y / 2;
@@ -22,4 +22,14 @@ bool check_visibility(coord_2d position, coord_2d size, Camera* cam)
 
 	return (position.x * TILE_SIZE <= cam->GetPosition()->x + camsxzoom) && ((position.x + size.x) * TILE_SIZE >= cam->GetPosition()->x - camsxzoom) && (position.y * TILE_SIZE <= cam->GetPosition()->y + camsyzoom) && ((position.y + size.y) * TILE_SIZE >= cam->GetPosition()->y - camsyzoom);
 
+}
+
+bool check_rect_visibility(coord_2d position, coord_2d size, Camera* cam)
+{
+	float camsx = cam->GetSize()->x / 2;
+	float camsy = cam->GetSize()->y / 2;
+	float camsxzoom = camsx * ( 1/ *cam->GetZoom() );
+	float camsyzoom = camsy * ( 1/ *cam->GetZoom());
+
+	return (position.x <= cam->GetPosition()->x + camsxzoom) && ((position.x + size.x) >= cam->GetPosition()->x - camsxzoom) && (position.y <= cam->GetPosition()->y + camsyzoom) && ((position.y + size.y) >= cam->GetPosition()->y - camsyzoom);
 }

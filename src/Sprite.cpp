@@ -24,16 +24,20 @@ SpriteRenderer::SpriteRenderer(SDL_Texture* texture, int height, int width)
 
 void SpriteRenderer::Draw_World_coord(coord_2d position, int index)
 {
-    SDL_Rect dest;
-    dest.x = (int)((position.x - this->camera->GetPosition()->x) * *this->camera->GetZoom() + this->camera->GetSize()->x / 2);
-    dest.y = (int)((position.y - this->camera->GetPosition()->y) * *this->camera->GetZoom() + this->camera->GetSize()->y / 2);
-    dest.w = this->width * *this->camera->GetZoom();
-    dest.h = this->height * *this->camera->GetZoom();
-    SDL_RenderCopy(this->camera->GetRenderer(), this->texture, &this->frames[index], &dest);
-    #ifdef DEBUG
-    SDL_SetRenderDrawColor(this->camera->GetRenderer(), 255, 0, 0, 255);
-    SDL_RenderDrawRect(this->camera->GetRenderer(), &dest);
-    #endif
+
+    if (check_rect_visibility(position, {this->width, this->height}, this->camera))
+    {
+        SDL_Rect dest;
+        dest.x = (int)((position.x - this->camera->GetPosition()->x) * *this->camera->GetZoom() + this->camera->GetSize()->x / 2);
+        dest.y = (int)((position.y - this->camera->GetPosition()->y) * *this->camera->GetZoom() + this->camera->GetSize()->y / 2);
+        dest.w = this->width * *this->camera->GetZoom();
+        dest.h = this->height * *this->camera->GetZoom();
+        SDL_RenderCopy(this->camera->GetRenderer(), this->texture, &this->frames[index], &dest);
+        #ifdef DEBUG
+        SDL_SetRenderDrawColor(this->camera->GetRenderer(), 255, 0, 0, 255);
+        SDL_RenderDrawRect(this->camera->GetRenderer(), &dest);
+        #endif
+    }
 }
 
 void SpriteRenderer::Draw_Screen_coord(coord_2d position, int index)

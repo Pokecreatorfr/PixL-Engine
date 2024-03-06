@@ -39,7 +39,7 @@ void TilemapRenderer::draw()
 {
     for(int i = 0; i < this->tiles.size(); i++)
     {
-        if (this->tiles[i].tile_index == -1 || !check_visibility({this->tiles[i].position.x/ TILE_SIZE , this->tiles[i].position.y/TILE_SIZE }, {1,1}, this->Camera))
+        if (this->tiles[i].tile_index == -1 || !check_tile_visibility({this->tiles[i].position.x/ TILE_SIZE , this->tiles[i].position.y/TILE_SIZE }, {1,1}, this->Camera))
         {
             continue;
         }

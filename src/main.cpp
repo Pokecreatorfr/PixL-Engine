@@ -174,7 +174,7 @@ int main(int argc, char* argv[])
 		// update screen
 		SDL_RenderPresent(Camera->GetRenderer());
 		Camera->addFrame();
-		SDL_Delay(16);
+		//SDL_Delay(16);
 	}
 
 
