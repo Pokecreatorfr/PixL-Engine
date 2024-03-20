@@ -10,6 +10,7 @@
 #include <GuiElements.hpp>
 #include <CoordCalculator.hpp>
 #include <SpriteRenderer.hpp>
+#include <GameLogicMainClass.hpp>
 
 using namespace std;
 using namespace std::chrono;
@@ -97,6 +98,7 @@ int main(int argc, char* argv[])
 	sprite1->walk_left = {8, 9};
 	sprite1->walk_right = {10, 11};
 
+	GameLogicMainClass* game_logic = GameLogicMainClass::GetInstance();
 
 	// main loop
 	while (!quit)
@@ -124,6 +126,17 @@ int main(int argc, char* argv[])
 			// if key pressed
 			if (event.type == SDL_KEYDOWN)
 			{
+				std::vector<int> keys;
+				// get keys pressed
+				const Uint8* state = SDL_GetKeyboardState(NULL);
+				for (int i = 0; i < 512; i++)
+				{
+					if (state[i])
+					{
+						keys.push_back(i);
+					}
+				}
+				game_logic->GetGameLogicStruct()->pressed_keys = keys;
 				switch (event.key.keysym.sym)
 				{
 					case SDLK_ESCAPE:
