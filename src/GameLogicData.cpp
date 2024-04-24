@@ -44,3 +44,8 @@ void GameLogicData::SetState(GameLogicState state)
 {
     this->state = state;
 }
+
+Save* GameLogicData::GetSave()
+{
+    return this->save_;
+}

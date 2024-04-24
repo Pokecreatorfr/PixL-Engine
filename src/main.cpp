@@ -127,16 +127,16 @@ int main(int argc, char* argv[])
 			if (event.type == SDL_KEYDOWN)
 			{
 				std::vector<int> keys;
-				// get keys pressed
+				// get keys pressed (ne pas tenir compte des touches relachées)
 				const Uint8* state = SDL_GetKeyboardState(NULL);
-				for (int i = 0; i < 512; i++)
+				for (int i = 0; i < SDL_NUM_SCANCODES; i++)
 				{
 					if (state[i])
 					{
 						keys.push_back(i);
 					}
 				}
-				game_logic->GetGameLogicStruct()->pressed_keys = keys;
+				GameLogicData::GetInstance()->SetPressedKeys(keys);
 				switch (event.key.keysym.sym)
 				{
 					case SDLK_ESCAPE:

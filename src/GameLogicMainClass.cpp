@@ -15,9 +15,39 @@ GameLogicMainClass* GameLogicMainClass::GetInstance()
     return instance_;
 }
 
-
-void game_logic_main()
+void GameLogicMainClass::update()
 {
-    GameLogicMainClass* game_logic = GameLogicMainClass::GetInstance();
-    GameLogicData* game_logic_data = GameLogicData::GetInstance();
+    switch (game_logic_data_->GetState())
+    {
+        case GameLogicState::TITLE_SCREEN:
+            break;
+        case GameLogicState::MAIN_MENU:
+            break;
+        case GameLogicState::OVERWORLD:
+            for(int i = 0; i < game_logic_data_->GetPressedKeys().size(); i++)
+            {
+                int key = game_logic_data_->GetPressedKeys()[i];
+                if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::UP] )
+                {
+                    camera_->GetPosition()->y -= 32;
+                }
+                if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::DOWN] )
+                {
+                    camera_->GetPosition()->y += 32;
+                }
+                if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::LEFT] )
+                {
+                    camera_->GetPosition()->x -= 32;
+                }
+                if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::RIGHT] )
+                {
+                    camera_->GetPosition()->x += 32;
+                }
+            }
+            break;
+        case GameLogicState::MENU:
+            break;
+        case GameLogicState::PAUSE:
+            break;
+    }
 }

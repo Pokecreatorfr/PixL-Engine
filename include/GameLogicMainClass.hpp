@@ -10,7 +10,9 @@ class GameLogicMainClass
         static GameLogicMainClass* instance_;
     public:
         static GameLogicMainClass* GetInstance();
-
+        void update();
     private:
-        GameLogicData* game_logic_data_;
+        GameLogicData* game_logic_data_ = GameLogicData::GetInstance();
+        Camera* camera_ = Camera::GetInstance();
+
 };

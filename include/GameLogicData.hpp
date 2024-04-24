@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <Camera.hpp>
+#include <Save.hpp>
 
 enum class GameLogicState
 {
@@ -24,9 +25,11 @@ class GameLogicData
         void Quit();
         GameLogicState GetState();
         void SetState(GameLogicState state);
+        Save* GetSave();
 
     private:
         std::vector<int> pressed_keys;
         bool quit = false;
-        GameLogicState state = GameLogicState::TITLE_SCREEN;
+        GameLogicState state = GameLogicState::OVERWORLD;
+        Save* save_ = Save::GetInstance();
 };
