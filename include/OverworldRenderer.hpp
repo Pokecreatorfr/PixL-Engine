@@ -2,6 +2,7 @@
 
 #include <MapRenderer.hpp>
 #include <generated/map2cpp.hpp>
+#include <Particle.hpp>
 
 
 class OverworldRenderer
@@ -17,5 +18,6 @@ class OverworldRenderer
         Camera *Camera;
         std::vector<MapRenderer*> map_renderers;
         std::vector<Tileset*> tilesets;
+        vector<OverworldParticleEmitter*> particle_emitters;
         Logger* logger;
 };

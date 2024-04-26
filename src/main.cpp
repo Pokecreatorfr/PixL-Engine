@@ -11,6 +11,7 @@
 #include <CoordCalculator.hpp>
 #include <SpriteRenderer.hpp>
 #include <GameLogicMainClass.hpp>
+#include <Particle.hpp>
 
 using namespace std;
 using namespace std::chrono;
@@ -99,6 +100,8 @@ int main(int argc, char* argv[])
 	sprite1->walk_right = {10, 11};
 
 	GameLogicMainClass* game_logic = GameLogicMainClass::GetInstance();
+	ParticleEmitter* emitter = new ParticleEmitter();
+	int mx, my;
 
 	// main loop
 	while (!quit)
@@ -180,8 +183,16 @@ int main(int argc, char* argv[])
 					
 				}
 			}
+			
+			
 		}
 
+		SDL_GetMouseState(&mx, &my);
+		for (int i = 0; i < 100; i++)
+		{
+			emitter->add_particle(FIRE, {mx, my});
+		}
+		
 		// clear screen
 		SDL_SetRenderDrawColor(Camera->GetRenderer(), 0, 0, 0, 255);
 		SDL_RenderClear(Camera->GetRenderer());
@@ -198,6 +209,10 @@ int main(int argc, char* argv[])
 		font->render_text(100, 100, 64, 64, 32, u'R', {tr, tg, tb});
 		font->render_text(132, 100, 64, 64, 32, u'G', {tr, tg, tb});
 		font->render_text(164, 100, 64, 64, 32, u'B', {tr, tg, tb});
+
+		// draw particles
+		emitter->update();
+		emitter->render();
 
 		// draw gui
 		gui->draw_gui();
