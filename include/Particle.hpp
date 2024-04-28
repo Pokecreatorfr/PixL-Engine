@@ -2,6 +2,7 @@
 
 #include <Graphics.hpp>
 #include <Camera.hpp>
+#include <math.h>
 
 enum particle_type
 {
@@ -34,12 +35,13 @@ class ParticleEmitter
     public:
         ParticleEmitter();
         ~ParticleEmitter();
-        void add_particle(particle_type , coord_2d );
+        void add_particle(particle_type type ,coord_2d pos ,int number ,coord_2d size );
         void update();
         void render();
     private:
         vector<particle*> particles;
-        SDL_Texture* texture;
+        SDL_Texture* texture1;
+        SDL_Texture* texture2;
         Camera* cam;
 };
 

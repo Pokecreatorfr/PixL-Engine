@@ -102,6 +102,7 @@ int main(int argc, char* argv[])
 	GameLogicMainClass* game_logic = GameLogicMainClass::GetInstance();
 	ParticleEmitter* emitter = new ParticleEmitter();
 	int mx, my;
+	bool tp = false;
 
 	// main loop
 	while (!quit)
@@ -159,6 +160,7 @@ int main(int argc, char* argv[])
 						break;
 					case SDLK_KP_PLUS:
 						*Camera->GetZoom() += 0.1f;
+						tp = !tp;
 						break;
 					case SDLK_KP_MINUS:
 						if (*Camera->GetZoom() > 0.1f)*Camera->GetZoom() -= 0.1f;
@@ -187,10 +189,11 @@ int main(int argc, char* argv[])
 			
 		}
 
-		SDL_GetMouseState(&mx, &my);
-		for (int i = 0; i < 100; i++)
+		if (Camera->GetFrame() % 2 == 0)
 		{
-			emitter->add_particle(FIRE, {mx, my});
+			SDL_GetMouseState(&mx, &my);
+			if (tp) emitter->add_particle(FIRE, {mx, my}, 5 , {10, 10});
+			else emitter->add_particle(SMOKE, {mx, my} ,4 , {10, 10});
 		}
 		
 		// clear screen
