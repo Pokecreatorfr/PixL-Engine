@@ -11,10 +11,11 @@ ifeq ($(MAKECMDGOALS),debug)
   CFLAGS += -DDEBUG
 endif
 
-CFLAGS = -Iinclude -Llib -O3
-LIBS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -mwindows -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lversion -luuid -static-libgcc -static-libstdc++  
+CFLAGS = -Iinclude -Iinclude/glib-2.0 -Iinclude/glib-2.0 -Llib -Llib/SDL2 -Llib/gstreamer -O3
+LIBS = -lmingw32 -mwindows -lm -ldinput8 -ldxguid -ldxerr8 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lshell32 -lversion -luuid -static-libgcc -static-libstdc++  
 
-
+export PKG_CONFIG_PATH := $(shell pwd)/pkgconfig/
+SDL= `pkg-config --cflags --libs sdl2 SDL2_image`
 
 SRCDIR = src
 OBJDIR = obj
@@ -52,8 +53,7 @@ $(ASMOBJS): $(OBJDIR)/%.o: $(ASMDIR)/%.asm
 
 $(TARGET): $(OBJS) $(ASMOBJS)
 	@echo "Linking $(TARGET)..."
-	@$(CC) $(CFLAGS) -o $@ $(OBJS) $(ASMOBJS) $(LIBS)
-
+	@$(CC) $(CFLAGS) -o $@ $(OBJS) $(ASMOBJS) $(SDL) $(LIBS) 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp
 	@echo "Compiling $<..."
 	@$(CC) $(CFLAGS) -c $< -o $@
