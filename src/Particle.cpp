@@ -187,3 +187,54 @@ void ParticleEmitter::render()
         SDL_RenderCopyEx(cam->GetRenderer(), particles[i]->texture, NULL, &dest, particles[i]->rotation, NULL, SDL_FLIP_NONE);
     }
 }
+
+OverworldParticleEmitter::OverworldParticleEmitter(int Layer)
+{
+    this->cam = Camera::GetInstance();
+    particles = vector<particle*>();
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, 1, 1, 32, 0xFF000000,  0x00FF0000,  0x0000FF00,  0x000000FF);
+    SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 255, 255, 255));
+    this->texture1 = SDL_CreateTextureFromSurface(cam->GetRenderer(), surface);
+    surface = SDL_CreateRGBSurface(0, 32, 32, 32, 0xFF000000,  0x00FF0000,  0x0000FF00,  0x000000FF);
+    SDL_FillRect(surface, NULL, SDL_MapRGBA(surface->format, 0, 0, 0, 0));
+    for (int i = 0; i < 32; i++)
+    {
+        for (int j = 0; j < 32; j++)
+        {
+            if (sqrt(pow(i - 16, 2) + pow(j - 16, 2)) < 16)
+            {
+                ((Uint32*)surface->pixels)[i + j * 32] = SDL_MapRGBA(surface->format, 255, 255, 255, 255);
+            }
+        }
+    }
+    this->texture2 = SDL_CreateTextureFromSurface(cam->GetRenderer(), surface);
+    SDL_FreeSurface(surface);
+    this->Layer = Layer;
+}
+
+OverworldParticleEmitter::~OverworldParticleEmitter()
+{
+    for (int i = 0; i < particles.size(); i++)
+    {
+        delete particles[i];
+    }
+    particles.clear();
+    SDL_DestroyTexture(texture1);
+    SDL_DestroyTexture(texture2);
+}
+
+void OverworldParticleEmitter::render()
+{
+    Logger::GetInstance()->log("je suis la");
+    int x = cam->GetPosition()->x;
+    int y = cam->GetPosition()->y;
+    Logger::GetInstance()->log("x: " + to_string(x) + " y: " + to_string(y));
+    for (int i = 0; i < particles.size(); i++)
+    {
+        Logger::GetInstance()->log("pososition de la particule:" + to_string(particles[i]->pos.x) + " " + to_string(particles[i]->pos.y));
+        SDL_Rect dest = {particles[i]->pos.x - x, particles[i]->pos.y - y, particles[i]->width, particles[i]->height};
+        SDL_SetTextureColorMod(particles[i]->texture, particles[i]->color.r, particles[i]->color.g, particles[i]->color.b);
+        SDL_SetTextureAlphaMod(particles[i]->texture, particles[i]->opacity);
+        SDL_RenderCopyEx(cam->GetRenderer(), particles[i]->texture, NULL, &dest, particles[i]->rotation, NULL, SDL_FLIP_NONE);
+    }
+}

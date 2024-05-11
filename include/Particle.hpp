@@ -45,8 +45,17 @@ class ParticleEmitter
         Camera* cam;
 };
 
-struct OverworldParticleEmitter
+class OverworldParticleEmitter : public ParticleEmitter
 {
-    int layer;
-    ParticleEmitter* emitter = new ParticleEmitter();
+    public:
+        OverworldParticleEmitter(int Layer);
+        ~OverworldParticleEmitter();
+        void render();
+        int get_layer();
+    private:
+        vector<particle*> particles;
+        SDL_Texture* texture1;
+        SDL_Texture* texture2;
+        Camera* cam;
+        int Layer;
 };
