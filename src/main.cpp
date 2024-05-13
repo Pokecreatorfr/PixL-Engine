@@ -13,6 +13,12 @@
 #include <GameLogicMainClass.hpp>
 #include <Particle.hpp>
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+#include <libavfilter/avfilter.h>
+}
 using namespace std;
 using namespace std::chrono;
 
@@ -104,6 +110,12 @@ int main(int argc, char* argv[])
 	OverworldParticleEmitter* overworld_emitter = new OverworldParticleEmitter(0);
 	int mx, my;
 	bool tp = false;
+
+	// open BigBuckBunny.mp4 and display its metadata
+	AVFormatContext* pFormatCtx = nullptr;
+	avformat_open_input(&pFormatCtx, "BigBuckBunny.mp4", nullptr, nullptr);
+
+	
 
 	// main loop
 	while (!quit)
