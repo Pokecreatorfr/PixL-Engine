@@ -32,13 +32,13 @@ def generate_files():
 
     image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.bmp'))]
 
-    with open(os.path.join(asm_dir, 'graphic.asm'), 'w') as asm_file:
+    with open(os.path.join(asm_dir, 'graphic.s'), 'w') as asm_file:
         for image in image_files:
             asm_entry = ".section rodata\n\n"
             asm_entry += generate_asm_image_entry(os.path.join(image_dir, image).replace("\\","/"))
             asm_file.write(asm_entry)
 
-    print(f'Processed {len(image_files)} images and wrote to graphic.asm')
+    print(f'Processed {len(image_files)} images and wrote to graphic.s')
 
     with open(os.path.join(os.path.dirname(__file__), include_dir), 'w') as hpp_file:
         hpp_file.write('#pragma once\n')

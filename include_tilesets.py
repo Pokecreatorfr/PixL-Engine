@@ -22,7 +22,7 @@ def generate_hpp_resource_entry(image_filename):
 image_files = [f for f in os.listdir('graphics/tilesets') if f.lower().endswith(('.png', '.jpg', '.bmp'))]
 
 
-with open('asm/graphic.asm', 'a') as asm_file:
+with open('asm/graphic.s', 'a') as asm_file:
 
     
 
