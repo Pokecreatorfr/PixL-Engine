@@ -45,10 +45,10 @@ class ParticleEmitter
         Camera* cam;
 };
 
-class OverworldParticleEmitter : public ParticleEmitter
+class OverworldParticleEmitter
 {
     public:
-        OverworldParticleEmitter(int Layer);
+        OverworldParticleEmitter();
         ~OverworldParticleEmitter();
         void add_particle(particle_type type ,coord_2d pos ,int number ,coord_2d size );
         void render();
@@ -59,5 +59,23 @@ class OverworldParticleEmitter : public ParticleEmitter
         SDL_Texture* texture1;
         SDL_Texture* texture2;
         Camera* cam;
-        int Layer;
+};
+
+class MovingParticleEmitter
+{
+    public:
+        MovingParticleEmitter(int* x ,int* y, bool affected_by_zoom);
+        ~MovingParticleEmitter();
+        void add_particle(particle_type type ,coord_2d pos ,int number ,coord_2d size );
+        void render();
+        void update();
+        void set_affected_by_zoom(bool affected_by_zoom);
+    private:
+        vector<particle*> particles;
+        SDL_Texture* texture1;
+        SDL_Texture* texture2;
+        Camera* cam;
+        int* posx;
+        int* posy;
+        bool affected_by_zoom;
 };

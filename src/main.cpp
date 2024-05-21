@@ -106,9 +106,10 @@ int main(int argc, char* argv[])
 	sprite1->walk_right = {10, 11};
 
 	GameLogicMainClass* game_logic = GameLogicMainClass::GetInstance();
-	ParticleEmitter* emitter = new ParticleEmitter();
-	OverworldParticleEmitter* overworld_emitter = new OverworldParticleEmitter(0);
 	int mx, my;
+	MovingParticleEmitter* emitter = new MovingParticleEmitter(&mx, &my, false);
+	OverworldParticleEmitter* overworld_emitter = new OverworldParticleEmitter();
+	
 	bool tp = false;
 
 
@@ -200,8 +201,8 @@ int main(int argc, char* argv[])
 		if (Camera->GetFrame() % 2 == 0)
 		{
 			SDL_GetMouseState(&mx, &my);
-			if (tp) emitter->add_particle(FIRE, {mx, my}, 5 , {10, 10});
-			else emitter->add_particle(SMOKE, {mx, my} ,4 , {10, 10});
+			if (tp) emitter->add_particle(FIRE, {0,0}, 5 , {10, 10});
+			else emitter->add_particle(SMOKE, {0,0} ,4 , {10, 10});
 			overworld_emitter->add_particle(FIRE, {500, 500}, 5 , {10, 10});
 		}
 		
