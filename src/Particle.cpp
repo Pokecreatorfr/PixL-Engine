@@ -39,6 +39,7 @@ ParticleEmitter::~ParticleEmitter()
 
 void ParticleEmitter::add_particle(particle_type type , coord_2d pos , int number , coord_2d size)
 {
+    Logger::GetInstance()->log("particle added");
     for (int i = 0 ; i < number ; i++)
     {
         if (type == FIRE)
@@ -173,7 +174,7 @@ void ParticleEmitter::update()
             }
         }
     }
-    Logger::GetInstance()->log("particles size: " + to_string(particles.size()));
+    //Logger::GetInstance()->log("particles size: " + to_string(particles.size()));
 }
 
 
@@ -225,16 +226,158 @@ OverworldParticleEmitter::~OverworldParticleEmitter()
 
 void OverworldParticleEmitter::render()
 {
-    Logger::GetInstance()->log("je suis la");
     int x = cam->GetPosition()->x;
     int y = cam->GetPosition()->y;
-    Logger::GetInstance()->log("x: " + to_string(x) + " y: " + to_string(y));
-    for (int i = 0; i < particles.size(); i++)
+    for (int i = particles.size()-1; i >= 0; i--)
     {
-        Logger::GetInstance()->log("pososition de la particule:" + to_string(particles[i]->pos.x) + " " + to_string(particles[i]->pos.y));
-        SDL_Rect dest = {particles[i]->pos.x - x, particles[i]->pos.y - y, particles[i]->width, particles[i]->height};
+        //Logger::GetInstance()->log("pososition de la particule:" + to_string(particles[i]->pos.x) + " " + to_string(particles[i]->pos.y));
+        SDL_Rect dest;
+        dest.x = static_cast<int>((particles[i]->pos.x - x) * *cam->GetZoom() + cam->GetSize()->x / 2);
+        dest.y = static_cast<int>((particles[i]->pos.y - y) * *cam->GetZoom() + cam->GetSize()->y / 2);
+        dest.w = static_cast<int>(particles[i]->width * *cam->GetZoom());
+        dest.h = static_cast<int>(particles[i]->height * *cam->GetZoom());
         SDL_SetTextureColorMod(particles[i]->texture, particles[i]->color.r, particles[i]->color.g, particles[i]->color.b);
         SDL_SetTextureAlphaMod(particles[i]->texture, particles[i]->opacity);
         SDL_RenderCopyEx(cam->GetRenderer(), particles[i]->texture, NULL, &dest, particles[i]->rotation, NULL, SDL_FLIP_NONE);
     }
+    //Logger::GetInstance()->log("particles size: " + to_string(particles.size()));
+}
+
+void OverworldParticleEmitter::add_particle(particle_type type , coord_2d pos , int number , coord_2d size)
+{
+    Logger::GetInstance()->log("particle added");
+    for (int i = 0 ; i < number ; i++)
+    {
+        if (type == FIRE)
+        {
+            particle* part = new particle();
+            part->type = FIRE;
+            part->texture = this->texture1;
+            part->width = size.x;
+            part->height = size.y;
+            part->color.r = 255;
+            part->color.g = 255;
+            part->color.b = 255;
+            part->opacity = 100;
+            part->pos = {pos.x + (rand() % 11 - 5) , pos.y + (rand() % 11 - 5), };
+            part->rotation = rand() % 360;
+            part->step = 0;
+            particles.push_back(part);
+        }
+        else if (type == SMOKE)
+        {
+            particle* part = new particle();
+            part->type = SMOKE;
+            part->texture = this->texture2;
+            part->width = size.x;
+            part->height = size.y;
+            part->color.r = 0;
+            part->color.g = 0;
+            part->color.b = 0;
+            part->opacity = 200;
+            part->pos = {pos.x + (rand() % 11 - 5) , pos.y + (rand() % 11 - 5), };
+            part->rotation = rand() % 360;
+            part->step = 0;
+            particles.push_back(part);
+        }
+    }
+}
+
+void OverworldParticleEmitter::update()
+{
+    for (int i = 0; i < particles.size(); i++)
+    {
+        if (particles[i]->type == FIRE)
+        {
+            particles[i]->step++;
+            particles[i]->pos.y -= 2;
+            particles[i]->rotation += (rand() % 20);
+            if (particles[i]->step % 8 == 0)
+            {
+                particles[i]->width +=  1;
+                particles[i]->height += 1 ;
+                particles[i]->pos.x += (rand() % 3 - 1);
+            }
+            if (particles[i]->rotation > 360)
+            {
+                particles[i]->rotation = particles[i]->rotation - 360;
+            }
+            if (particles[i]->step < 20)
+            {
+                particles[i]->color.r = 255;
+                particles[i]->color.g = 255;
+                particles[i]->color.b = 255 - particles[i]->step * 255 / 20;
+            }
+            else if (particles[i]->step < 40)
+            {
+                particles[i]->color.r = 255;
+                particles[i]->color.g = 255 - (particles[i]->step - 20) * 255 / 20;
+                particles[i]->color.b = 0;
+                particles[i]->pos.x += (rand() % 3 - 1);
+            }
+            else if (particles[i]->step < 80)
+            {
+                if (particles[i]->step == 41)
+                {
+                    particles[i]->texture = texture2;
+                }
+                particles[i]->color.r = 255 - (particles[i]->step - 40) * 255 / 40;
+                particles[i]->color.g = 0;
+                particles[i]->color.b = 0;
+                particles[i]->opacity = 255 - (particles[i]->step - 40) * 255 / 60;
+            }
+            else if (particles[i]->step < 120)
+            {
+                particles[i]->color.r = (particles[i]->step - 80) * 100 / 40;
+                particles[i]->color.g = (particles[i]->step - 80) * 100 / 40;
+                particles[i]->color.b = (particles[i]->step - 80) * 100 / 40;
+                particles[i]->opacity = 255 - (particles[i]->step - 80) * 255 / 40;
+                particles[i]->pos.y -= 1;
+                particles[i]->pos.x += (rand() % 5 - 2);
+                particles[i]->height++;
+                particles[i]->width++;
+            }
+            // if step is 60 or more, delete particle
+            else
+            {
+                delete particles[i];
+                particles.erase(particles.begin() + i);
+            }
+        }
+        else if(particles[i]->type == SMOKE)
+        {
+            particles[i]->step++;
+            particles[i]->pos.y -= 2;
+            particles[i]->rotation += (rand() % 20);
+            if (particles[i]->step % 8 == 0)
+            {
+                particles[i]->width +=  1;
+                particles[i]->height += 1 ;
+                particles[i]->pos.x += (rand() % 3 - 1);
+            }
+            if (particles[i]->rotation > 360)
+            {
+                particles[i]->rotation = particles[i]->rotation - 360;
+            }
+            if (particles[i]->step < 20)
+            {
+                particles[i]->color.r = 0;
+                particles[i]->color.g = 0;
+                particles[i]->color.b = 0;
+            }
+            else if (particles[i]->step < 60)
+            {
+                particles[i]->color.r = (particles[i]->step - 20) * 100 / 40;
+                particles[i]->color.g = (particles[i]->step - 20) * 100 / 40;
+                particles[i]->color.b = (particles[i]->step - 20) * 100 / 40;
+                particles[i]->opacity = 255 - (particles[i]->step - 20) * 255 / 40;
+            }
+            else
+            {
+                delete particles[i];
+                particles.erase(particles.begin() + i);
+            }
+        }
+    }
+    //Logger::GetInstance()->log("particles size: " + to_string(particles.size()));
 }

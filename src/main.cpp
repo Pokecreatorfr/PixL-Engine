@@ -111,11 +111,6 @@ int main(int argc, char* argv[])
 	int mx, my;
 	bool tp = false;
 
-	// open BigBuckBunny.mp4 and display its metadata
-	AVFormatContext* pFormatCtx = nullptr;
-	avformat_open_input(&pFormatCtx, "BigBuckBunny.mp4", nullptr, nullptr);
-
-	
 
 	// main loop
 	while (!quit)
@@ -205,8 +200,8 @@ int main(int argc, char* argv[])
 		if (Camera->GetFrame() % 2 == 0)
 		{
 			SDL_GetMouseState(&mx, &my);
-			//if (tp) emitter->add_particle(FIRE, {mx, my}, 5 , {10, 10});
-			//else emitter->add_particle(SMOKE, {mx, my} ,4 , {10, 10});
+			if (tp) emitter->add_particle(FIRE, {mx, my}, 5 , {10, 10});
+			else emitter->add_particle(SMOKE, {mx, my} ,4 , {10, 10});
 			overworld_emitter->add_particle(FIRE, {500, 500}, 5 , {10, 10});
 		}
 		
@@ -228,8 +223,8 @@ int main(int argc, char* argv[])
 		font->render_text(164, 100, 64, 64, 32, u'B', {tr, tg, tb});
 
 		// draw particles
-		//emitter->update();
-		//emitter->render();
+		emitter->update();
+		emitter->render();
 
 		overworld_emitter->update();
 		overworld_emitter->render();

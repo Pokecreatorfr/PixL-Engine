@@ -50,7 +50,9 @@ class OverworldParticleEmitter : public ParticleEmitter
     public:
         OverworldParticleEmitter(int Layer);
         ~OverworldParticleEmitter();
+        void add_particle(particle_type type ,coord_2d pos ,int number ,coord_2d size );
         void render();
+        void update();
         int get_layer();
     private:
         vector<particle*> particles;
