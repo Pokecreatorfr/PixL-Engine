@@ -16,8 +16,6 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavutil/avutil.h>
-#include <libavfilter/avfilter.h>
 }
 using namespace std;
 using namespace std::chrono;
@@ -39,6 +37,17 @@ int main(int argc, char* argv[])
 	OverworldRenderer* overworld = new OverworldRenderer();
 	FontsRenderer* font = new FontsRenderer(&font_ressource_m5x7);
 	GuiRenderer* gui = GuiRenderer::GetInstance();
+
+	// init FFMPEG
+	AVFormatContext *pFormatCtx;
+    int vidId = -1, audId = -1;
+    double fpsrendering = 0.0;
+    AVCodecContext *vidCtx, *audCtx;
+    AVCodec *vidCodec, *audCodec;
+    AVCodecParameters *vidpar, *audpar;
+    AVFrame *vframe, *aframe;
+    AVPacket *packet;
+	pFormatCtx = avformat_alloc_context();
 
 	gui_element* lifebar_element = new gui_element();
 	lifebar_element->PtrGui = lifebar;
@@ -112,11 +121,23 @@ int main(int argc, char* argv[])
 	
 	bool tp = false;
 
+	// timer for frequency
+	high_resolution_clock::time_point frequency_timer = high_resolution_clock::now();
+
+	if (avformat_open_input(&pFormatCtx, argv[1], NULL, NULL) < 0) {
+		logger->log("Could not open file");
+		return -1;
+    }
+	if (avformat_find_stream_info(pFormatCtx, NULL) < 0) {
+        logger->log("Could not find stream information");
+		return -1;
+    }
+
+
 
 	// main loop
 	while (!quit)
 	{
-
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
 		{
@@ -198,7 +219,7 @@ int main(int argc, char* argv[])
 			
 		}
 
-		if (Camera->GetFrame() % 2 == 0)
+		if (Camera->GetFrame() % 4 == 0)
 		{
 			SDL_GetMouseState(&mx, &my);
 			if (tp) emitter->add_particle(FIRE, {0,0}, 5 , {10, 10});
@@ -236,7 +257,12 @@ int main(int argc, char* argv[])
 		// update screen
 		SDL_RenderPresent(Camera->GetRenderer());
 		Camera->addFrame();
-		SDL_Delay(16);
+		while (duration_cast<microseconds>(high_resolution_clock::now() - frequency_timer).count() < 1000000 / ENGINE_Hz)
+		{
+			;
+		}
+		Logger::GetInstance()->log("fps : " + to_string(1000000 /duration_cast<microseconds>(high_resolution_clock::now() - frequency_timer).count()));
+		frequency_timer = high_resolution_clock::now();
 	}
 
 
