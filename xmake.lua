@@ -7,6 +7,9 @@ add_requires("ffmpeg")
 add_requires("libsdl")
 add_requires("libsdl_image")
 add_requires("python")
+add_requires("glad")
+add_requires("glm")
+
 -- pip install pillow
 
 before_build(function (target)
@@ -16,6 +19,7 @@ before_build(function (target)
     os.exec("python include_fonts.py")
     os.exec("python include_tilesets.py")
     os.exec("python include_maps.py")
+    os.exec("python include_shaders.py")
 end)
 
 
@@ -24,4 +28,4 @@ target("PixL-Engine")
     add_includedirs("include")
     add_files("asm/*.s")
     add_files("src/*.cpp")
-    add_packages("ffmpeg","libsdl", "libsdl_image")
+    add_packages("libsdl", "libsdl_image" , "glad", "glm" )

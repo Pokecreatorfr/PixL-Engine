@@ -3,14 +3,15 @@
 
 Camera::Camera()
 {
-    this->window = SDL_CreateWindow("PixL Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);;
-    this->renderer = SDL_CreateRenderer(this->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);;
+    this->window = SDL_CreateWindow("PixL Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT,SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);;
+    SDL_GLContext context = SDL_GL_CreateContext(window);
     this->position.x = 0;
     this->position.y = 0;
     this->size.x = WINDOW_WIDTH;
     this->size.y = WINDOW_HEIGHT;
     this->zoom = 1.0;
     this->frame = 0;
+    this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED );
 }
 
 Camera* Camera::instance_ = nullptr;

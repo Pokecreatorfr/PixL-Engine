@@ -5,7 +5,11 @@
             "includePath": [
                 "${default}",
                 "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\l\\libsdl\\2.30.3\\b8cc8cb68f2b439983d0100d06ef8e31\\include",
-                "C:\\Users\\mathe\\Documents\\GitHub\\PixL-Engine\\include"
+                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\g\\glad\\v0.1.36\\532cfdaea9e4486da89fdf8543f96cae\\include",
+                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\g\\glfw\\3.4\\2b0ee41504834bce92ad7417ca255952\\include",
+                "C:\\Users\\mathe\\Documents\\GitHub\\PixL-Engine\\include",
+                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\s\\stb\\2023.12.15\\376c7c0a79434993bcd66389a01b85d8\\include",
+                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\g\\glm\\1.0.1\\9fa2cfb4da1f4c99b7d10483df41bd00\\include"
             ],
             "defines": [
                 "_DEBUG",

@@ -1,0 +1,8 @@
+#version 330
+layout (location=0) in vec2 vertex;
+layout (location=1) in vec2 inputUV;
+                   out vec2 outputUV;
+void main() {
+    gl_Position = vec4(vertex, 0.0, 1.0);
+    outputUV = inputUV;
+}

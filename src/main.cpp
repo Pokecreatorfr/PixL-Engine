@@ -12,11 +12,8 @@
 #include <SpriteRenderer.hpp>
 #include <GameLogicMainClass.hpp>
 #include <Particle.hpp>
+#include <Renderer.hpp>
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-}
 using namespace std;
 using namespace std::chrono;
 
@@ -32,107 +29,17 @@ int main(int argc, char* argv[])
 	}
 	// create window
 	Camera* Camera = Camera::GetInstance();
+	Renderer* Renderer = Renderer::GetInstance();
 	Logger* logger = Logger::GetInstance();
-	Tileset* tileset = new Tileset(&Tileset_tileset1);
-	OverworldRenderer* overworld = new OverworldRenderer();
-	FontsRenderer* font = new FontsRenderer(&font_ressource_m5x7);
-	GuiRenderer* gui = GuiRenderer::GetInstance();
 
-	// init FFMPEG
-	AVFormatContext *pFormatCtx;
-    int vidId = -1, audId = -1;
-    double fpsrendering = 0.0;
-    AVCodecContext *vidCtx, *audCtx;
-    AVCodec *vidCodec, *audCodec;
-    AVCodecParameters *vidpar, *audpar;
-    AVFrame *vframe, *aframe;
-    AVPacket *packet;
-	pFormatCtx = avformat_alloc_context();
+	std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 
-	gui_element* lifebar_element = new gui_element();
-	lifebar_element->PtrGui = lifebar;
-	lifebar_element->priority = 0;
-	lifebar_element->w = new int(104);
-	lifebar_element->h = nullptr;
-	lifebar_element->x = new int(100);
-	lifebar_element->y = new int(0);
-	lifebar_element->font_renderer = font;
-
-	int pv = 100;
-	int max_pv = 100;
-	gui_param lifebar_param;
-	lifebar_param.int_ptr_params.push_back(&pv);
-	lifebar_param.int_ptr_params.push_back(&max_pv);
-	lifebar_param.bool_ptr_params.push_back(new bool(true));
-	lifebar_element->param = lifebar_param;
-
-	gui_element* caminfo_element = new gui_element();
-	caminfo_element->PtrGui = caminfo;
-	caminfo_element->priority = 0;
-	caminfo_element->w = new int(100);
-	caminfo_element->h = nullptr;
-	caminfo_element->x = new int(0);
-	caminfo_element->y = new int(0);
-	caminfo_element->font_renderer = font;
-
-	gui_param caminfo_param;
-	caminfo_element->param = caminfo_param;
-	bool* caminfo_visibility = new bool(false);
-	caminfo_element->param.bool_ptr_params.push_back(caminfo_visibility);
-
-
-	gui->add_gui_element(lifebar_element);
-	gui->add_gui_element(caminfo_element);
-
-
-
-	CoordCalculator* coord_calculator = CoordCalculator::GetInstance();
-	coord_calculator->add_coord_to_adjust(lifebar_element->x, WIDTH, 0.8);
-	coord_calculator->add_coord_to_adjust(lifebar_element->w, WIDTH, 0.2);
-	coord_calculator->add_coord_to_adjust(caminfo_element->w, WIDTH, 0.3);
-	coord_calculator->adjust_coords();
-
-	SDL_Texture* sprite_texture = Load_Texture( ow_sprite_ressource,  Camera->GetRenderer());
-	SpriteRenderer* spriter = new SpriteRenderer(sprite_texture, 32, 32);
-
+	
 	bool quit = false;
-	
-	sprite* sprite1 = new sprite();
-	sprite1->texture = &ow_sprite_ressource;
-	sprite1->walk_speed = 45;
-	sprite1->run_speed = 15;
-	sprite1->animation_speed = 15;
-	sprite1->width = 32;
-	sprite1->height = 64;
-	sprite1->hitbox = {32, 64};
-	sprite1->face_down = {0};
-	sprite1->face_up = {1};
-	sprite1->face_left = {2};
-	sprite1->face_right = {3};
-	sprite1->walk_down = {4, 5};
-	sprite1->walk_up = {6, 7};
-	sprite1->walk_left = {8, 9};
-	sprite1->walk_right = {10, 11};
 
-	GameLogicMainClass* game_logic = GameLogicMainClass::GetInstance();
-	int mx, my;
-	MovingParticleEmitter* emitter = new MovingParticleEmitter(&mx, &my, false);
-	OverworldParticleEmitter* overworld_emitter = new OverworldParticleEmitter();
-	
-	bool tp = false;
-
-	// timer for frequency
-	high_resolution_clock::time_point frequency_timer = high_resolution_clock::now();
-
-	if (avformat_open_input(&pFormatCtx, argv[1], NULL, NULL) < 0) {
-		logger->log("Could not open file");
-		return -1;
-    }
-	if (avformat_find_stream_info(pFormatCtx, NULL) < 0) {
-        logger->log("Could not find stream information");
-		return -1;
-    }
-
+	OpenGLTexture texture = OpenGLTexture(tileset_tileset1_ressource);
+	OpenGLShader shader = OpenGLShader(Shader_basic_shader);
 
 
 	// main loop
@@ -153,7 +60,9 @@ int main(int argc, char* argv[])
 				if (event.window.event == SDL_WINDOWEVENT_RESIZED)
 				{
 					SDL_GetWindowSize(Camera->GetWindow(), &Camera->GetSize()->x, &Camera->GetSize()->y);
-					coord_calculator->adjust_coords();
+					int width = event.window.data1;
+        			int height = event.window.data2;
+        			glViewport(0, 0, width, height);
 				}
 			}
 
@@ -170,48 +79,8 @@ int main(int argc, char* argv[])
 						keys.push_back(i);
 					}
 				}
-				GameLogicData::GetInstance()->SetPressedKeys(keys);
 				switch (event.key.keysym.sym)
 				{
-					case SDLK_ESCAPE:
-						quit = true;
-						break;
-					case SDLK_UP:
-						Camera->GetPosition()->y -= 32;
-						break;
-					case SDLK_DOWN:
-						Camera->GetPosition()->y += 32;
-						break;
-					case SDLK_LEFT:
-						Camera->GetPosition()->x -= 32;
-						break;
-					case SDLK_RIGHT:
-						Camera->GetPosition()->x += 32;
-						break;
-					case SDLK_KP_PLUS:
-						*Camera->GetZoom() += 0.1f;
-						tp = !tp;
-						break;
-					case SDLK_KP_MINUS:
-						if (*Camera->GetZoom() > 0.1f)*Camera->GetZoom() -= 0.1f;
-						break;
-					case SDLK_m :
-						if (pv > 0)
-						{
-							pv -= 1;
-							logger->log("pv : " + to_string(pv));
-						}
-						break;
-					case SDLK_p :
-						if (pv < max_pv)
-						{
-							pv += 1;
-							logger->log("pv : " + to_string(pv));
-						}
-						break;
-					case SDLK_o :
-						*caminfo_visibility = !*caminfo_visibility;
-						break;
 					
 				}
 			}
@@ -219,50 +88,26 @@ int main(int argc, char* argv[])
 			
 		}
 
-		if (Camera->GetFrame() % 4 == 0)
-		{
-			SDL_GetMouseState(&mx, &my);
-			if (tp) emitter->add_particle(FIRE, {0,0}, 5 , {10, 10});
-			else emitter->add_particle(SMOKE, {0,0} ,4 , {10, 10});
-			overworld_emitter->add_particle(FIRE, {500, 500}, 5 , {10, 10});
-		}
+		glClear(GL_COLOR_BUFFER_BIT);
+		//shader.Use();
+		texture.Bind();
+		glEnable(GL_TEXTURE_2D);
+    	glBegin(GL_QUADS);
+		// draw texture
 		
-		// clear screen
-		SDL_SetRenderDrawColor(Camera->GetRenderer(), 0, 0, 0, 255);
-		SDL_RenderClear(Camera->GetRenderer());
 
-		// draw map
-		overworld->check_maps_visibility();
-		overworld->draw();
-		spriter->Draw_World_coord({18 * TILE_SIZE, 9 * TILE_SIZE}, Camera->GetFrame()/100 % 4);
 		
-		uint8_t tr = static_cast<int>(255 * sin(0.01 * Camera->GetFrame()));
-		uint8_t tg = static_cast<int>(255 * sin(0.01 * Camera->GetFrame() + 2));
-		uint8_t tb = static_cast<int>(255 * sin(0.01 * Camera->GetFrame() + 4));
-		// draw text
-		font->render_text(100, 100, 64, 64, 32, u'R', {tr, tg, tb});
-		font->render_text(132, 100, 64, 64, 32, u'G', {tr, tg, tb});
-		font->render_text(164, 100, 64, 64, 32, u'B', {tr, tg, tb});
+		glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0f, 1.0f);
+		glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 1.0f);
+		glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, -1.0f);
+		glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0f, -1.0f);
 
-		// draw particles
-		emitter->update();
-		emitter->render();
 
-		overworld_emitter->update();
-		overworld_emitter->render();
+    	glEnd();
+		glDisable(GL_TEXTURE_2D);
 
-		// draw gui
-		gui->draw_gui();
-
-		// update screen
-		SDL_RenderPresent(Camera->GetRenderer());
-		Camera->addFrame();
-		while (duration_cast<microseconds>(high_resolution_clock::now() - frequency_timer).count() < 1000000 / ENGINE_Hz)
-		{
-			;
-		}
-		Logger::GetInstance()->log("fps : " + to_string(1000000 /duration_cast<microseconds>(high_resolution_clock::now() - frequency_timer).count()));
-		frequency_timer = high_resolution_clock::now();
+		SDL_GL_SwapWindow(Camera->GetWindow());
+		SDL_Delay(16);
 	}
 
 
