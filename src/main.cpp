@@ -41,7 +41,23 @@ int main(int argc, char* argv[])
 	OpenGLTexture texture = OpenGLTexture(tileset_tileset1_ressource);
 	OpenGLShader shader = OpenGLShader(Shader_basic_shader);
 
+	float vertices[] = {
+    -0.5f, -0.5f, 0.0f,
+     0.5f, -0.5f, 0.0f,
+     0.0f,  0.5f, 0.0f
+	};
 
+	 unsigned int VBO;
+		glGenBuffers(1, &VBO);   
+		glBindBuffer(GL_ARRAY_BUFFER, VBO); 
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		unsigned int VAO;
+		glGenVertexArrays(1, &VAO);  
+		glBindVertexArray(VAO);
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);  
 	// main loop
 	while (!quit)
 	{
@@ -88,23 +104,10 @@ int main(int argc, char* argv[])
 			
 		}
 
-		glClear(GL_COLOR_BUFFER_BIT);
-		//shader.Use();
-		texture.Bind();
-		glEnable(GL_TEXTURE_2D);
-    	glBegin(GL_QUADS);
-		// draw texture
-		
+		shader.Use();
+		glBindVertexArray(VAO);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
-		
-		glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0f, 1.0f);
-		glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, 1.0f);
-		glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, -1.0f);
-		glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0f, -1.0f);
-
-
-    	glEnd();
-		glDisable(GL_TEXTURE_2D);
 
 		SDL_GL_SwapWindow(Camera->GetWindow());
 		SDL_Delay(16);
