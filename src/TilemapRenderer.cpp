@@ -1,23 +1,24 @@
-#include <TilemapRenderer.hpp>
+#include "TilemapRenderer.hpp"
 
 
-TilemapRenderer::TilemapRenderer(const tiles_layer* tl ,int x, int y , int w , int h ,  Tileset* ts)
+TilemapRenderer::TilemapRenderer(const tiles_layer *tl, int x, int y, int w, int h, Tileset *ts)
 {
-    this->Camera = Camera::GetInstance();
-    this->height = h;
-    this->width = w;
-    this->tileset = ts;
-    for(int i = 0 ; i < h ; i++)
+    tileset = ts;
+    width = w;
+    height = h;
+    Camera = Camera::GetInstance();
+    for (int i = 0; i < tl->tiles.size(); i++)
     {
-        for(int j = 0 ; j < w ; j++)
-        {
-            int tile_index = tl->tiles[i * w + j];
-            coord_2d position = {(j + x) * TILE_SIZE , (i + y) * TILE_SIZE};
-            coord_2d size = {TILE_SIZE , TILE_SIZE};
-            Tile tile = {position , size , tile_index};
-            this->tiles.push_back(tile);
-        }
+        int tile_index = tl->tiles[i];
+        int tile_x = i % w;
+        int tile_y = i / w;
+        int tile_x_pos = x + tile_x * ts->get_tile_width();
+        int tile_y_pos = y + tile_y * ts->get_tile_height();
+        Tile tile({tile_x_pos, tile_y_pos}, {ts->get_tile_width(), ts->get_tile_height()}, tile_index);
+        tiles.push_back(tile);
     }
+    vertices = new float[tiles.size() * 4 * 4];
+    indices = new unsigned int[tiles.size() * 6];
 }
 
 TilemapRenderer::~TilemapRenderer()
@@ -26,39 +27,98 @@ TilemapRenderer::~TilemapRenderer()
 
 int TilemapRenderer::get_height()
 {
-    return this->height;
+    return height;
 }
 
 int TilemapRenderer::get_width()
 {
-    return this->width;
+    return width;
 }
-
 
 void TilemapRenderer::draw()
 {
-    for(int i = 0; i < this->tiles.size(); i++)
+    float tile_width = 1.0 / tileset->get_tile_width();
+    float tile_height = 1.0 / tileset->get_tile_height();
+    float map_pos_x = -1.0;
+    float map_pos_y = -1.0;
+    float camera_pos_x = 0.0;
+    float camera_pos_y = 0.0;
+    float zoom = *this->Camera->GetZoom();
+    unsigned int VBO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+    for(int x = 0 ; x < width ; x++)
     {
-        if (this->tiles[i].tile_index == -1 || !check_tile_visibility({this->tiles[i].position.x/ TILE_SIZE , this->tiles[i].position.y/TILE_SIZE }, {1,1}, this->Camera))
+        for(int y = 0 ; y < height ; y++)
         {
-            continue;
+
+            int actual_tile_index_x_pos = tiles[x + y * width].tile_index % tileset->get_tile_width();
+            int actual_tile_index_y_pos = tiles[x + y * width].tile_index / tileset->get_tile_width();
+
+            vertices[(x + y * width) * 16] = (map_pos_x + x * tile_width - camera_pos_x) * zoom;
+            vertices[(x + y * width) * 16 + 1] = (map_pos_y + y * tile_height - camera_pos_y) * zoom;
+            vertices[(x + y * width) * 16 + 2] = actual_tile_index_x_pos * tile_width;
+            vertices[(x + y * width) * 16 + 3] = actual_tile_index_y_pos * tile_height;
+
+            vertices[(x + y * width) * 16 + 4] = (map_pos_x + x * tile_width - camera_pos_x) * zoom;
+            vertices[(x + y * width) * 16 + 5] = (map_pos_y + y * tile_height + tile_height - camera_pos_y) * zoom;
+            vertices[(x + y * width) * 16 + 6] = actual_tile_index_x_pos * tile_width;
+            vertices[(x + y * width) * 16 + 7] = actual_tile_index_y_pos * tile_height + tile_height;
+
+            vertices[(x + y * width) * 16 + 8] = (map_pos_x + x * tile_width + tile_width - camera_pos_x) * zoom;
+            vertices[(x + y * width) * 16 + 9] = (map_pos_y + y * tile_height + tile_height - camera_pos_y) * zoom;
+            vertices[(x + y * width) * 16 + 10] = actual_tile_index_x_pos * tile_width + tile_width;
+            vertices[(x + y * width) * 16 + 11] = actual_tile_index_y_pos * tile_height + tile_height;
+
+            vertices[(x + y * width) * 16 + 12] = (map_pos_x + x * tile_width + tile_width - camera_pos_x) * zoom;
+            vertices[(x + y * width) * 16 + 13] = (map_pos_y + y * tile_height - camera_pos_y) * zoom;
+            vertices[(x + y * width) * 16 + 14] = actual_tile_index_x_pos * tile_width + tile_width;
+            vertices[(x + y * width) * 16 + 15] = actual_tile_index_y_pos * tile_height;
+
+            indices[(x + y * width) * 6] = x + y * width;
+            indices[(x + y * width) * 6 + 1] = x + y * width + 1;
+            indices[(x + y * width) * 6 + 2] = x + y * width + width;
+            indices[(x + y * width) * 6 + 3] = x + y * width + 1;
+            indices[(x + y * width) * 6 + 4] = x + y * width + width + 1;
+            indices[(x + y * width) * 6 + 5] = x + y * width + width;
         }
-        SDL_Rect rect;
-
-        float tileX = this->tiles[i].position.x;
-        float tileY = this->tiles[i].position.y;
-        float tileSizeX = this->tiles[i].size.x;
-        float tileSizeY = this->tiles[i].size.y;
-
-
-
-        rect.x = static_cast<int>((tileX - this->Camera->GetPosition()->x) * *this->Camera->GetZoom() + Camera->GetSize()->x / 2);
-        rect.y = static_cast<int>((tileY - this->Camera->GetPosition()->y) * *this->Camera->GetZoom() + Camera->GetSize()->y / 2);
-
-        // Ajustez les dimensions en fonction du zoom et assurez-vous qu'elles sont des tailles rondes
-        rect.w = adjustedSize(tileSizeX, *this->Camera->GetZoom());
-        rect.h = adjustedSize(tileSizeY, *this->Camera->GetZoom());
-
-        tileset->draw_tile(this->tiles[i].tile_index, rect.x, rect.y, rect.w, rect.h);
     }
+    glBindVertexArray(VAO);
+
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(*vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(*indices), indices, GL_STATIC_DRAW);
+
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // color attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    // texture coord attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    GL_TEXTURE_2D, tileset->get_texture()->Bind();
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, sizeof(*indices), GL_UNSIGNED_INT, 0);
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+
+    
+    glBindVertexArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+Tileset *TilemapRenderer::get_tileset()
+{
+    return tileset;
 }

@@ -1,19 +1,10 @@
 #include <chrono>
 #include <const/Config.hpp>
-#include <Light.hpp>
 #include <Log.hpp>
-#include <OverworldRenderer.hpp>
-#include <generated/map2cpp.hpp>
-#include <generated/font2cpp.hpp>
-#include <FontsRenderer.hpp>
-#include <Cinematics.hpp>
-#include <GuiElements.hpp>
-#include <CoordCalculator.hpp>
-#include <SpriteRenderer.hpp>
-#include <GameLogicMainClass.hpp>
-#include <Particle.hpp>
+#include <Graphics.hpp>
+#include <generated/tileset2cpp.hpp>
 #include <Renderer.hpp>
-
+#include <OverworldRenderer.hpp>
 using namespace std;
 using namespace std::chrono;
 
@@ -37,9 +28,11 @@ int main(int argc, char* argv[])
 
 	
 	bool quit = false;
-
-	OpenGLTexture texture = OpenGLTexture(tileset_tileset1_ressource);
+	
+	OpenGLTexture texture = OpenGLTexture(&tileset_tileset1_ressource);
 	OpenGLShader shader = OpenGLShader(Shader_basic_shader);
+
+	OverworldRenderer* overworld_renderer = new OverworldRenderer();
 
 	glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
 
@@ -122,14 +115,14 @@ int main(int argc, char* argv[])
 			
 		}
 
+		overworld_renderer->update();
 		glClear(GL_COLOR_BUFFER_BIT);
 		shader.Use();
-		texture.Bind();
-		glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-
-		SDL_GL_SwapWindow(Camera->GetWindow());
+		//texture.Bind();
+		//glBindVertexArray(VAO);
+        //glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		overworld_renderer->draw();
+		Renderer->Render();
 		SDL_Delay(16);
 	}
 

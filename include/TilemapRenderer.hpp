@@ -1,17 +1,15 @@
 #pragma once 
-#include <vector>
-#include <SDL2/SDL.h>
-#include <Camera.hpp>
-#include <MapStruct.hpp>
-#include <maths.hpp>
 
+#include <Tileset.hpp>
+#include <Renderer.hpp>
+#include <generated/map2cpp.hpp>
 
 struct Tile
 {
 	// constructor
-	Tile(coord_2d position, coord_2d size, int tile_index) : position(position), size(size), tile_index(tile_index) {}
-	coord_2d position;
-	coord_2d size;
+	Tile(SDL_Point position, SDL_Point size, int tile_index) : position(position), size(size), tile_index(tile_index) {}
+	SDL_Point position;
+	SDL_Point size;
 	int tile_index;
 };
 
@@ -23,10 +21,15 @@ class TilemapRenderer
         int get_height();
         int get_width();
         void draw();
+        Tileset* get_tileset();
     private:
         int height;
         int width;
         Camera* Camera;
         std::vector<Tile> tiles;
         Tileset* tileset;
+        unsigned int VAO , VBO , EBO;
+        float* vertices;
+        unsigned int* indices;
+
 };

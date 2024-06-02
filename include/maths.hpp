@@ -1,12 +1,8 @@
 #pragma once
-#include <cmath>
+
+#include <iostream>
+#include <vector>
+#include <SDL2/SDL.h>
+SDL_FPoint screen_square_size(int w, int h);
 #include <Camera.hpp>
-#include <const/Config.hpp>
-
-
-
-int adjustedSize(int originalSize, float zoom);
-int calculateExtraPixels(int originalSize, float zoom);
-
-bool check_tile_visibility(coord_2d position, coord_2d size, Camera* cam);
-bool check_rect_visibility(coord_2d position, coord_2d size, Camera* cam);
+bool check_overworld_rect_visibility(float x, float y, float w, float h);

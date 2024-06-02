@@ -1,14 +1,10 @@
 #pragma once
-#include <const/Config.hpp>
-#include <SDL2/SDL.h>
-#include <Log.hpp>
-#include <mutex>
 
-struct coord_2d
-{
-    int x;
-    int y;
-};
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <iostream>
+#include <maths.hpp>
+
 
 class Camera
 {
@@ -17,23 +13,25 @@ class Camera
         static Camera* instance_;
     public:
         static Camera* GetInstance();
-        SDL_Window* GetWindow();
-        SDL_Renderer* GetRenderer();
-        coord_2d* GetPosition();
-        coord_2d* GetSize();
-        std::mutex* GetMutex();
-        int GetFrame();
-        float* GetZoom();
-        void SetPosition(coord_2d position);
-        void SetSize(coord_2d size);
+        void Update();
+        void SetPosition(float x, float y);
         void SetZoom(float zoom);
-        void addFrame();
+        void Set_Square_Size(SDL_FPoint square_size);
+        float* Getposx();
+        float* Getposy();
+        float* GetZoom();
+        SDL_Point* GetSize();
+        SDL_Window* GetWindow();
+        SDL_FPoint* Get_Square_Size();
     private:
-        SDL_Window* window;
-        SDL_Renderer* renderer;
-        coord_2d position;
-        coord_2d size;
+        float posx;
+        float posy;
         float zoom;
-        int frame;
-        std::mutex engine_mutex = std::mutex();
+        SDL_Window* window;
+        SDL_Point size;
+        SDL_Renderer* renderer;
+        SDL_GLContext context;
+        SDL_FPoint square_size;
+        
+
 };

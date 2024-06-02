@@ -1,10 +1,8 @@
 #pragma once
 #include <vector>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <iostream>
 #include <const/Config.hpp>
-#include <glad/glad.h>
+#include <Renderer.hpp>
 #include <generated/shaders.hpp>
 #include <glm/glm.hpp>
 
@@ -25,13 +23,10 @@ struct colorRGB
 	uint8_t b;
 };
 
-SDL_Texture* Load_Texture(image_ressource image_ressource, SDL_Renderer* renderer);
-SDL_Texture* Load_Texture(image_ressource image_ressource, SDL_Renderer* renderer);
-
 class OpenGLTexture
 {
 	public:
-		OpenGLTexture(image_ressource image_ressource);
+		OpenGLTexture(const image_ressource* image_ressource);
 		void Bind();
 		~OpenGLTexture();
 		int GetWidth();

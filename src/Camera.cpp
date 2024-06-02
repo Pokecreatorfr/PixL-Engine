@@ -1,17 +1,21 @@
-#include <Camera.hpp>
-
+#include "Camera.hpp"
 
 Camera::Camera()
 {
-    this->window = SDL_CreateWindow("PixL Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT,SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);;
-    SDL_GLContext context = SDL_GL_CreateContext(window);
-    this->position.x = 0;
-    this->position.y = 0;
-    this->size.x = WINDOW_WIDTH;
-    this->size.y = WINDOW_HEIGHT;
-    this->zoom = 1.0;
-    this->frame = 0;
-    this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED );
+    this->posx = 0;
+    this->posy = 0;
+    this->zoom = 1;
+    this->window = SDL_CreateWindow("Game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    if (window == nullptr)
+    {
+        std::cout << "Failed to create window\n";
+        return;
+    }
+    this->context = SDL_GL_CreateContext(window);
+    this->size.x = 800;
+    this->size.y = 600;
+    this->renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    this->square_size = screen_square_size(size.x, size.y);
 }
 
 Camera* Camera::instance_ = nullptr;
@@ -25,44 +29,15 @@ Camera* Camera::GetInstance()
     return instance_;
 }
 
-SDL_Window* Camera::GetWindow()
+void Camera::Update()
 {
-    return this->window;
+    SDL_GetWindowSize(window, &size.x, &size.y);
 }
 
-SDL_Renderer* Camera::GetRenderer()
+void Camera::SetPosition(float x, float y)
 {
-    return this->renderer;
-}
-
-coord_2d* Camera::GetPosition()
-{
-    return &this->position;
-}
-
-coord_2d* Camera::GetSize()
-{
-    return &this->size;
-}
-
-int Camera::GetFrame()
-{
-    return this->frame;
-}
-
-float* Camera::GetZoom()
-{
-    return &this->zoom;
-}
-
-void Camera::SetPosition(coord_2d position)
-{
-    this->position = position;
-}
-
-void Camera::SetSize(coord_2d size)
-{
-    this->size = size;
+    this->posx = x;
+    this->posy = y;
 }
 
 void Camera::SetZoom(float zoom)
@@ -70,7 +45,37 @@ void Camera::SetZoom(float zoom)
     this->zoom = zoom;
 }
 
-void Camera::addFrame()
+void Camera::Set_Square_Size(SDL_FPoint square_size)
 {
-    this->frame++;
+    this->square_size = square_size;
+}
+
+float* Camera::Getposx()
+{
+    return &this->posx;
+}
+
+float* Camera::Getposy()
+{
+    return &this->posy;
+}
+
+float* Camera::GetZoom()
+{
+    return &this->zoom;
+}
+
+SDL_Point *Camera::GetSize()
+{
+    return &size;
+}
+
+SDL_Window* Camera::GetWindow()
+{
+    return this->window;
+}
+
+SDL_FPoint *Camera::Get_Square_Size()
+{
+    return &this->square_size;
 }

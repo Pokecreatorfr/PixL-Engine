@@ -29,19 +29,19 @@ void GameLogicMainClass::update()
                 int key = game_logic_data_->GetPressedKeys()[i];
                 if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::UP] )
                 {
-                    camera_->GetPosition()->y -= 32;
+                    *camera_->Getposy() -= 32;
                 }
                 if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::DOWN] )
                 {
-                    camera_->GetPosition()->y += 32;
+                    *camera_->Getposy() += 32;
                 }
                 if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::LEFT] )
                 {
-                    camera_->GetPosition()->x -= 32;
+                    *camera_->Getposx()  -= 32;
                 }
                 if (key == game_logic_data_->GetSave()->GetKeys()[ActionKey::RIGHT] )
                 {
-                    camera_->GetPosition()->x += 32;
+                    *camera_->Getposx() += 32;
                 }
             }
             break;

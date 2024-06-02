@@ -20,23 +20,19 @@ struct tileset
     std::vector<tile_animation> animations;
 };
 
-
 class Tileset
 {
     public:
         Tileset(const tileset* tileset);
         ~Tileset();
+        int get_tile_width();
+        int get_tile_height();
         int get_uid();
-        int get_tileset_width();
-        int get_tileset_height();
-        void draw_tile(int tile_index, int x, int y , int w, int h);
+        OpenGLTexture* get_texture();
     private:
-        int uid;
-        int tileset_width;
-        int tileset_height;
-        SDL_Texture *texture;
-        std::vector<SDL_Rect*> tile_rects;
+        OpenGLTexture* texture;
+        int tile_width;
+        int tile_height;
         std::vector<tile_animation> animations;
-        Camera* Camera;
-        int get_tile_index(int tile_index);
+        int uid;
 };

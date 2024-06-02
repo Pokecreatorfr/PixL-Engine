@@ -1,135 +1,102 @@
-#include <OverworldRenderer.hpp>
-
+#include "OverworldRenderer.hpp"
 
 OverworldRenderer::OverworldRenderer()
 {
-    this->Camera = Camera::GetInstance();
-    this->logger = Logger::GetInstance();
+    camera = Camera::GetInstance();
+    update();
+    shader = new OpenGLShader(Shader_basic_shader);
 }
 
 OverworldRenderer::~OverworldRenderer()
 {
-    for (auto &mr : this->map_renderers)
-    {
-        delete mr;
-    }
-}
-
-void OverworldRenderer::check_maps_visibility()
-{
-    for (int i = 0; i < overworld_maps.size(); i++)
-    {
-        if (check_map_visibility(overworld_maps[i]))
-        {
-            bool present = false;
-            for(int j = 0; j < this->map_renderers.size(); j++)
-            {
-                if(this->map_renderers[j]->get_uid() == overworld_maps[i]->uid)
-                {
-                    present = true;
-                    break;
-                }
-            }
-            if(!present)
-            {
-                bool tileset_present = false;
-                std::vector<const tileset*> tilesets_vector;
-                tilesets_vector.push_back(overworld_maps[i]->tile_layer_0.tileset);
-                tilesets_vector.push_back(overworld_maps[i]->tile_layer_1.tileset);
-                tilesets_vector.push_back(overworld_maps[i]->tile_layer_2.tileset);
-
-                for (int k = 0; k < tilesets_vector.size(); k++)
-                {
-                    for (int l = 0; l < this->tilesets.size(); l++)
-                    {
-                        if (tilesets_vector[k]->uid == this->tilesets[l]->get_uid())
-                        {
-                            tileset_present = true;
-                            break;
-                        }
-                    }
-                    if (!tileset_present)
-                    {
-                        this->tilesets.push_back(new Tileset(tilesets_vector[k]));
-                        this->logger->log("Tileset " + std::to_string(tilesets_vector[k]->uid) + " loaded");
-                    }
-                }
-
-                std::vector<Tileset*> tilesets_vector2;
-                for (int k = 0; k < tilesets_vector.size(); k++)
-                {
-                    for (int l = 0; l < this->tilesets.size(); l++)
-                    {
-                        if (tilesets_vector[k]->uid == this->tilesets[l]->get_uid())
-                        {
-                            tilesets_vector2.push_back(this->tilesets[l]);
-                            break;
-                        }
-                    }
-                }
-
-
-
-                this->map_renderers.push_back(new MapRenderer(overworld_maps[i] , tilesets_vector2[0], tilesets_vector2[1], tilesets_vector2[2]));
-                this->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " loaded");
-            }
-        }
-        else
-        {
-            for(int j = 0; j < this->map_renderers.size(); j++)
-            {
-                if(this->map_renderers[j]->get_uid() == overworld_maps[i]->uid)
-                {
-                    delete this->map_renderers[j];
-                    this->map_renderers.erase(this->map_renderers.begin() + j);
-                    this->logger->log("Map " + std::to_string(overworld_maps[i]->uid) + " unloaded");
-                    break;
-                }
-            }
-        }
-    }
-    this->check_tilesets_usage();
-}
-
-void OverworldRenderer::check_tilesets_usage()
-{
-    for (int i = 0; i < this->tilesets.size(); i++)
-    {
-        bool present = false;
-        for (int j = 0; j < this->map_renderers.size(); j++)
-        {
-            std::vector<int> tilesets_uid = this->map_renderers[j]->get_tilesets_uid();
-            for (int k = 0; k < tilesets_uid.size(); k++)
-            {
-                if (tilesets_uid[k] == this->tilesets[i]->get_uid())
-                {
-                    present = true;
-                    break;
-                }
-            }
-        }
-        if (!present)
-        {
-            this->logger->log("Tileset " + std::to_string(this->tilesets[i]->get_uid()) + " unloaded");
-            delete this->tilesets[i];
-            this->tilesets.erase(this->tilesets.begin() + i);
-        }
-    }
-}
-
-bool OverworldRenderer::check_map_visibility(const map_struct* map)
-{
-    coord_2d map_position = {map->map_pos_x, map->map_pos_y};
-    coord_2d map_size = {map->width, map->height};
-    return check_tile_visibility(map_position, map_size, this->Camera);
 }
 
 void OverworldRenderer::draw()
 {
-    for(int i = 0; i < this->map_renderers.size(); i++)
+    for(int i = 0; i < maps.size(); i++)
     {
-        this->map_renderers[i]->draw_layer0();
-        this->map_renderers[i]->draw_layer1();
-        this->map_renderers[i]->draw_layer2();
+        maps[i]->draw_layer0();
+        maps[i]->draw_layer1();
+        maps[i]->draw_layer2();
     }
+}
+
+void OverworldRenderer::update()
+{
+    // delete maps that are not visible
+    for(int i = maps.size() - 1; i >= 0; i--)
+    {
+        if(!check_overworld_rect_visibility(maps[i]->get_map_pos_x(), maps[i]->get_map_pos_y(), maps[i]->get_width(), maps[i]->get_height()))
+        {
+            std::cout << "deleting map : " << maps[i]->get_uid() << std::endl;
+            delete maps[i];
+            maps.erase(maps.begin() + i);
+        }
+    }
+    // load maps that are visible and not loaded
+    for(int i = 0; i < overworld_maps.size(); i++)
+    {
+        if(!check_if_map_is_loaded(overworld_maps[i]->uid) && check_overworld_rect_visibility(overworld_maps[i]->map_pos_x, overworld_maps[i]->map_pos_y, overworld_maps[i]->width, overworld_maps[i]->height))
+        {
+            std::cout << "loading map : " << overworld_maps[i]->uid << std::endl;
+            Tileset *ts0 = get_tileset(overworld_maps[i]->tile_layer_0.tileset);
+            Tileset *ts1 = get_tileset(overworld_maps[i]->tile_layer_1.tileset);
+            Tileset *ts2 = get_tileset(overworld_maps[i]->tile_layer_2.tileset);
+            maps.push_back(new MapRenderer(overworld_maps[i], ts0, ts1, ts2));
+        }
+    }
+    // check if some tilesets are not used anymore
+    for(int i = tilesets.size() - 1; i >= 0; i--)
+    {
+        bool is_used = false;
+        for(int j = 0; j < maps.size(); j++)
+        {
+            std::vector<int> tilesets_uid = maps[j]->get_tilesets_uid();
+            for(int k = 0; k < tilesets_uid.size(); k++)
+            {
+                if(tilesets_uid[k] == tilesets[i]->get_uid())
+                {
+                    is_used = true;
+                    break;
+                }
+            }
+            if(is_used)
+            {
+                break;
+            }
+        }
+        if(!is_used)
+        {
+            std::cout << "deleting tileset : " << tilesets[i]->get_uid() << std::endl;
+            delete tilesets[i];
+            tilesets.erase(tilesets.begin() + i);
+        }
+    }
+}
+
+bool OverworldRenderer::check_if_map_is_loaded(int uid)
+{
+    for(int i = 0; i < maps.size(); i++)
+    {
+        if(maps[i]->get_uid() == uid)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+Tileset *OverworldRenderer::get_tileset(const tileset* ts)
+{
+    for(int i = 0; i < tilesets.size(); i++)
+    {
+        if(tilesets[i]->get_uid() == ts->uid)
+        {
+            return tilesets[i];
+        }
+    }
+    std::cout << "loading tileset : " << ts->uid << std::endl;
+    Tileset *new_tileset = new Tileset(ts);
+    tilesets.push_back(new_tileset);
+    return new_tileset;
 }

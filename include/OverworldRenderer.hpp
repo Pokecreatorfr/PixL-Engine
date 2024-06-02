@@ -1,23 +1,19 @@
 #pragma once
 
 #include <MapRenderer.hpp>
-#include <generated/map2cpp.hpp>
-#include <Particle.hpp>
-
 
 class OverworldRenderer
 {
     public:
         OverworldRenderer();
         ~OverworldRenderer();
-        void check_maps_visibility();
         void draw();
+        void update();
     private:
-        bool check_map_visibility(const map_struct* map);
-        void check_tilesets_usage();
-        Camera *Camera;
-        std::vector<MapRenderer*> map_renderers;
+        bool check_if_map_is_loaded(int uid);
+        Tileset* get_tileset(const tileset* ts);
+        std::vector<MapRenderer*> maps;
         std::vector<Tileset*> tilesets;
-        vector<OverworldParticleEmitter*> particle_emitters;
-        Logger* logger;
+        Camera* camera;
+        OpenGLShader* shader;
 };

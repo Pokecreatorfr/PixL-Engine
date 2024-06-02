@@ -1,5 +1,4 @@
 #pragma once
-
 #include <Camera.hpp>
 #include <generated/shaders.hpp>
 #include <glad/glad.h>

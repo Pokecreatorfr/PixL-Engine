@@ -13,6 +13,8 @@ Renderer::Renderer()
         std::cout << "Failed to load glad\n";
         return;
     }
+
+    camera = Camera::GetInstance();
 }
 
 Renderer* Renderer::instance_ = nullptr;
@@ -24,4 +26,9 @@ Renderer* Renderer::GetInstance()
         instance_ = new Renderer();
     }
     return instance_;
+}
+
+void Renderer::Render()
+{
+    SDL_GL_SwapWindow(camera->GetWindow());
 }
