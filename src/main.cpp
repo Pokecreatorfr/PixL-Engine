@@ -13,10 +13,7 @@
 #include <GameLogicMainClass.hpp>
 #include <Particle.hpp>
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-}
+
 using namespace std;
 using namespace std::chrono;
 
@@ -37,17 +34,6 @@ int main(int argc, char* argv[])
 	OverworldRenderer* overworld = new OverworldRenderer();
 	FontsRenderer* font = new FontsRenderer(&font_ressource_m5x7);
 	GuiRenderer* gui = GuiRenderer::GetInstance();
-
-	// init FFMPEG
-	AVFormatContext *pFormatCtx;
-    int vidId = -1, audId = -1;
-    double fpsrendering = 0.0;
-    AVCodecContext *vidCtx, *audCtx;
-    AVCodec *vidCodec, *audCodec;
-    AVCodecParameters *vidpar, *audpar;
-    AVFrame *vframe, *aframe;
-    AVPacket *packet;
-	pFormatCtx = avformat_alloc_context();
 
 	gui_element* lifebar_element = new gui_element();
 	lifebar_element->PtrGui = lifebar;
@@ -123,15 +109,6 @@ int main(int argc, char* argv[])
 
 	// timer for frequency
 	high_resolution_clock::time_point frequency_timer = high_resolution_clock::now();
-
-	if (avformat_open_input(&pFormatCtx, argv[1], NULL, NULL) < 0) {
-		logger->log("Could not open file");
-		return -1;
-    }
-	if (avformat_find_stream_info(pFormatCtx, NULL) < 0) {
-        logger->log("Could not find stream information");
-		return -1;
-    }
 
 
 
