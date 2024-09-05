@@ -1,3 +1,0 @@
-- utiliser des char16_t[] pour les chaînes de caractères (dialogues par exemple)
-
-- Ajouter la possibilité de paralaxer les images de fond dans l'overworld ( peux etre utile pour les maps en hauteur ) 

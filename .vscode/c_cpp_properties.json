@@ -3,19 +3,21 @@
         {
             "name": "Win32",
             "includePath": [
-                "${default}",
-                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\l\\libsdl\\2.30.3\\b8cc8cb68f2b439983d0100d06ef8e31\\include",
-                "C:\\Users\\mathe\\Documents\\GitHub\\PixL-Engine\\include"
+                "${workspaceFolder}/**",
+                "C:/Users/mathe/AppData/Local/.xmake/packages/**",
+                "C:/Users/mathe/AppData/Local/.xmake/packages/l/libsdl/2.30.6/096218a6ad18471ca1448b9b6148d76d/include",
+                "${workspaceFolder}/include"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE"
             ],
-            "windowsSdkVersion": "10.0.22000.0",
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "cl.exe",
             "cStandard": "c17",
             "cppStandard": "c++17",
-            "intelliSenseMode": "gcc-x64"
+            "intelliSenseMode": "windows-msvc-x64"
         }
     ],
     "version": 4
