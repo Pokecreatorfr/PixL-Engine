@@ -8,11 +8,17 @@ add_requires("libsdl_image")
 
 
 target("PixL-Engine")
+    before_build(function(target)
+        os.tryrm(target:targetdir() .. "/data")
+    end)
     set_kind("binary")
     add_includedirs("include")
     add_files("src/*.cpp")
     add_packages("libsdl", "libsdl_image")
-    -- if mode is debug
     if is_mode("debug") then
         add_defines("DEBUG")
     end
+    -- copier le dossie data dans le même dossier que l'exécutable
+    after_build(function(target)
+        os.cp("data", target:targetdir())
+    end)
