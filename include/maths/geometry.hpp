@@ -1,11 +1,10 @@
 #pragma once
+#include <SDL2/SDL.h>
 
-inline bool isPointInRect(int x, int y, int rectX, int rectY, int rectW, int rectH);
+bool isPointInRect(SDL_Point point, SDL_Rect rect);
 
-// regarder si deux rectangles se superposent
+bool isRectInRect(SDL_Rect rect1, SDL_Rect rect2);
 
-inline bool isRectInRect(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2);
+bool isRectInRectStrict(SDL_Rect rect1, SDL_Rect rect2);
 
-// regarder si un rectangle est strictement dans un autre
-
-inline bool isRectInRectStrict(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2);
+bool isRectsIntersect(SDL_Rect rect1, SDL_Rect rect2);

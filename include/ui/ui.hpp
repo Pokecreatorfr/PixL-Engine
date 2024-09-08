@@ -11,6 +11,7 @@ namespace ui {
         UI();
         ~UI();
         void handleEvents();
+        void addContainer(UIContainer container);
         
     private:
         void Draw();

@@ -5,6 +5,7 @@ set_optimize("fastest")
 
 add_requires("libsdl")
 add_requires("libsdl_image")
+add_requires("libsdl_ttf")
 
 
 target("PixL-Engine")
@@ -13,8 +14,8 @@ target("PixL-Engine")
     end)
     set_kind("binary")
     add_includedirs("include")
-    add_files("src/*.cpp")
-    add_packages("libsdl", "libsdl_image")
+    add_files("src/**.cpp")
+    add_packages("libsdl", "libsdl_image", "libsdl_ttf")
     if is_mode("debug") then
         add_defines("DEBUG")
     end

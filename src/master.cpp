@@ -64,13 +64,14 @@ SDL_Renderer *Master::getRenderer()
     return this->renderer;
 }
 
-void Master::updateEvent()
+bool Master::updateEvent()
 {
     SDL_PollEvent(&this->e);
     if (this->e.type == SDL_QUIT)
     {
-        SDL_Quit();
+        return false;
     }
+    return true;
 }
 
 SDL_Event *Master::getEvent()

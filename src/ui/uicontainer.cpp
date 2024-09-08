@@ -1,12 +1,13 @@
 #include <ui/uicontainer.hpp>
-#include "uicontainer.hpp"
 
 std::vector<ui::UIContainer*> ui::UIContainer::instances_ = std::vector<ui::UIContainer*>();
 
-ui::UIContainer::UIContainer(int w, int h, Uint32 backgroundColor)
+ui::UIContainer::UIContainer(int x, int y, int w, int h, Uint32 backgroundColor)
 {
     this->w = w;
     this->h = h;
+    this->x = x;
+    this->y = y;
     this->backgroundColor = backgroundColor;
     this->renderer = Master::getInstance()->getRenderer();
     this->window = Master::getInstance()->getWindow();
@@ -59,7 +60,7 @@ void ui::UIContainer::handleEvents()
     {
         if (buttons[i].button.visible)
         {
-            if( isPointInRect(mouseX, mouseY, buttons[i].button.x, buttons[i].button.y, buttons[i].button.w, buttons[i].button.h) )
+            if( isPointInRect({mouseX, mouseY}, {buttons[i].button.x, buttons[i].button.y, buttons[i].button.w, buttons[i].button.h}) )
             {
                 if(mouseLeftButton)
                 {
@@ -121,8 +122,6 @@ void ui::UIContainer::handleEvents()
             this->needUpdate = true;
         }
 
-        
-
     }
 
     // For each list
@@ -134,7 +133,7 @@ void ui::UIContainer::handleEvents()
             {
                 if(lists[i].list.buttons[j].button.visible)
                 {
-                    if( isPointInRect(mouseX, mouseY, lists[i].list.buttons[j].button.x, lists[i].list.buttons[j].button.y, lists[i].list.buttons[j].button.w, lists[i].list.buttons[j].button.h) )
+                    if( isPointInRect({mouseX, mouseY}, {lists[i].list.buttons[j].button.x, lists[i].list.buttons[j].button.y, lists[i].list.buttons[j].button.w, lists[i].list.buttons[j].button.h } ) )
                     {
                         if(mouseLeftButton)
                         {
@@ -335,7 +334,12 @@ void ui::UIContainer::Draw()
     if(this->visible && this->needUpdate)
     {
         SDL_SetRenderTarget(this->renderer, this->texture);
-        SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, 0);
+        Uint8 r, g, b, a;
+        r = (this->backgroundColor & 0xFF000000) >> 24;
+        g = (this->backgroundColor & 0x00FF0000) >> 16;
+        b = (this->backgroundColor & 0x0000FF00) >> 8;
+        a = (this->backgroundColor & 0x000000FF);
+        SDL_SetRenderDrawColor(this->renderer, r, g, b, a);
         SDL_RenderClear(this->renderer);
         // draw childrens
         for(int i = 0; i < this->childrens.size(); i++)

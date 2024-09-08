@@ -1,11 +1,13 @@
+#pragma once
 #include <graphics/graphics.hpp>
+
 
 struct TilesetInfo
 {
     std::string tilesetPath;
     int tileWidth;
     int tileHeight;
-}
+};
 
 class Tileset
 {
@@ -18,11 +20,12 @@ class Tileset
         int getTileCount();
         int getColumns();
         int getRows();
-        void renderTile(int id, SDL_rect dest);
+        void renderTile(int id, SDL_Rect dest);
     private:
         SDL_Texture* tilesetTexture;
         TilesetInfo info;
         int tileCount;
         int columns;
         int rows;
+        SDL_Renderer* renderer;
 };

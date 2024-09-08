@@ -15,7 +15,7 @@ namespace ui {
     protected:
         static std::vector<UIContainer*> instances_;
     public:
-        UIContainer(int w, int h, Uint32 backgroundColor);
+        UIContainer(int x, int y ,int w, int h, Uint32 backgroundColor);
         ~UIContainer();
         void handleEvents();
         int getIndex();
@@ -37,7 +37,7 @@ namespace ui {
     private:
         int index;
         bool visible;
-        bool needUpdate;
+        bool needUpdate = true;
         void Draw();
         SDL_Renderer* renderer;
         SDL_Window* window;

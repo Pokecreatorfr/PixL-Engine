@@ -1,16 +1,20 @@
 #include <maths/geometry.hpp>
 
-inline bool isPointInRect(int x, int y, int rectX, int rectY, int rectW, int rectH)
+bool isPointInRect(SDL_Point point, SDL_Rect rect)
 {
-    return x >= rectX && x <= rectX + rectW && y >= rectY && y <= rectY + rectH;
+    return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
 }
 
-inline bool isRectInRect(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
+bool isRectInRect(SDL_Rect rect1, SDL_Rect rect2)
 {
-    return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+    return rect1.x <= rect2.x + rect2.w && rect1.x + rect1.w >= rect2.x && rect1.y <= rect2.y + rect2.h && rect1.y + rect1.h >= rect2.y;
 }
 
-inline bool isRectInRectStrict(int x1, int y1, int w1, int h1, int x2, int y2, int w2, int h2)
+bool isRectInRectStrict(SDL_Rect rect1, SDL_Rect rect2)
 {
-    return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2 && (x1 != x2 || y1 != y2 || w1 != w2 || h1 != h2);
+    return rect1.x < rect2.x + rect2.w && rect1.x + rect1.w > rect2.x && rect1.y < rect2.y + rect2.h && rect1.y + rect1.h > rect2.y;
+}
+bool isRectsIntersect(SDL_Rect rect1, SDL_Rect rect2)
+{
+    return isRectInRect(rect1, rect2) || isRectInRect(rect2, rect1);
 }

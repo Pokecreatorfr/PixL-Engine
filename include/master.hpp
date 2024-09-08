@@ -13,7 +13,7 @@ public:
     static Master* getInstance();
     SDL_Window* getWindow();
     SDL_Renderer* getRenderer();
-    void updateEvent();
+    bool updateEvent();
     SDL_Event* getEvent();
 private:
     SDL_Window* window;

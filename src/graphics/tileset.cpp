@@ -1,12 +1,10 @@
-#include "tileset.hpp"
+#include <graphics/tileset.hpp>
 
 Tileset::Tileset(TilesetInfo info)
 {
+    this->renderer = Master::getInstance()->getRenderer();
     this->info = info;
-    this->tilesetTexture = loadTexture(info.tilesetPath.c_str(), renderer);
-    this->tileCount = (tilesetTexture->w / info.tileWidth) * (tilesetTexture->h / info.tileHeight);
-    this->columns = tilesetTexture->w / info.tileWidth;
-    this->rows = tilesetTexture->h / info.tileHeight;
+    this->tilesetTexture = loadTexture(info.tilesetPath.c_str(), this->renderer);
 }
 
 Tileset::~Tileset()
@@ -44,7 +42,7 @@ int Tileset::getRows()
     return rows;
 }
 
-void Tileset::renderTile(int id, SDL_rect dest)
+void Tileset::renderTile(int id, SDL_Rect dest)
 {
     int x = (id % columns) * info.tileWidth;
     int y = (id / columns) * info.tileHeight;
