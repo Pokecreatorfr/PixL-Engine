@@ -9,8 +9,10 @@ enum ButtonState
     BUTTON_STATE_CLICK,
 };
 
-struct Button
+class Button
 {
+public:
+    Button();
     int x, y = 0;
     int w, h = 0;
     Uint32 color = 0;
@@ -20,8 +22,10 @@ struct Button
     std::string text = "";
     void (*onClick)(void) = nullptr;
     void (*onHover)(void) = nullptr;
-    bool visible = false;
+    bool visible = true;
     bool prevVisible = false;
+private:
+    int index = 0;
 };
 
 struct ButtonInfo

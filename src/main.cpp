@@ -11,7 +11,7 @@ int main( int argc, char* args[] )
     SDL_Renderer* renderer = master->getRenderer();
 
     ui::UI ui;
-    ui::UIContainer container(0, 0, 800, 100, 0x0000FFFF);
+    ui::UIContainer container(200, 200, 800, 100, 0x0000FFFF);
     container.setVisibility(true);
 
     container.addButton({10, 10, 100, 100, 0x00FF00FF, 0xFF0000FF, 0x00FF00FF, nullptr, nullptr, nullptr, "Hello"});

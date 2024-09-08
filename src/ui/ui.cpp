@@ -48,7 +48,6 @@ void ui::UI::Draw()
     {
         if(this->containers[i].isVisible())
         {
-            std::cout << "Drawing container" << std::endl;
             SDL_Rect rect = {this->containers[i].getX(), this->containers[i].getY(), this->containers[i].getW(), this->containers[i].getH()};
             SDL_RenderCopy(this->renderer, this->containers[i].getTexture(), NULL, &rect);
         }

@@ -60,7 +60,7 @@ void ui::UIContainer::handleEvents()
     {
         if (buttons[i].button.visible)
         {
-            if( isPointInRect({mouseX, mouseY}, {buttons[i].button.x, buttons[i].button.y, buttons[i].button.w, buttons[i].button.h}) )
+            if( isPointInRect({mouseX, mouseY}, {buttons[i].button.x + this->x , buttons[i].button.y + this->y, buttons[i].button.w, buttons[i].button.h}) )
             {
                 if(mouseLeftButton)
                 {
@@ -133,7 +133,7 @@ void ui::UIContainer::handleEvents()
             {
                 if(lists[i].list.buttons[j].button.visible)
                 {
-                    if( isPointInRect({mouseX, mouseY}, {lists[i].list.buttons[j].button.x, lists[i].list.buttons[j].button.y, lists[i].list.buttons[j].button.w, lists[i].list.buttons[j].button.h } ) )
+                    if( isPointInRect({mouseX, mouseY}, {lists[i].list.buttons[j].button.x + this->x , lists[i].list.buttons[j].button.y + this->y, lists[i].list.buttons[j].button.w, lists[i].list.buttons[j].button.h } ) )
                     {
                         if(mouseLeftButton)
                         {
@@ -359,7 +359,6 @@ void ui::UIContainer::Draw()
             {
                 SDL_Texture* btntexture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, this->buttons[i].button.w, this->buttons[i].button.h);
                 SDL_SetRenderTarget(this->renderer, btntexture);
-                Uint8 r, g, b, a;
                 r = (this->buttons[i].button.color & 0xFF000000) >> 24;
                 g = (this->buttons[i].button.color & 0x00FF0000) >> 16;
                 b = (this->buttons[i].button.color & 0x0000FF00) >> 8;
