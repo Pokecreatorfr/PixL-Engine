@@ -1,8 +1,9 @@
 #include <LoadDatas.hpp>
 #include <Render/RendererWrapper.hpp>
+#include <SystemEvent.hpp>
 
-
-int main(int argv, char** args) {
+int main(int argv, char **args)
+{
 	DataLoader loader("data/Exemple.ldtk");
 	quicktype::LdtkJson ldtkjs = loader.get_ldtk_json();
 
@@ -12,9 +13,12 @@ int main(int argv, char** args) {
 
 	SDL_Window *window = renderer.create_window("Test", 800, 600);
 
-	SDL_Delay(3000);
+	SystemEvent *event = SystemEvent::getInstance(new SDL_Event());
 
-	renderer.destroy_window();
+	while (!event->isQuit())
+	{
+		event->update();
+	}
 
 	return 0;
 }
