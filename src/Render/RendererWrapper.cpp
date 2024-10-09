@@ -2,17 +2,30 @@
 
 RendererWrapper::RendererWrapper(RendererType type)
 {
+    this->renderer_type = type;
+    switch (type)
+    {
+    case RendererType::SDL2:
+        this->renderer = new SDL2Renderer();
+        break;
+    case RendererType::Vulkan:
+        break;
+    case RendererType::OpenGL:
+        break;
+    case RendererType::DirectX:
+        break;
+    }
 }
 
 RendererWrapper::~RendererWrapper()
 {
 }
 
-bool RendererWrapper::init()
+void RendererWrapper::init()
 {
-    SDL_Init(SDL_INIT_VIDEO);
-    return true;
+    this->renderer->init(this->window);
 }
+
 SDL_Window *RendererWrapper::create_window(std::string title, int width, int height)
 {
     SDL_Init(SDL_INIT_VIDEO);
