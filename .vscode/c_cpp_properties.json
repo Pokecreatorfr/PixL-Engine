@@ -4,8 +4,8 @@
             "name": "Win32",
             "includePath": [
                 "${default}",
-                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\l\\libsdl\\2.30.3\\b8cc8cb68f2b439983d0100d06ef8e31\\include",
-                "C:\\Users\\mathe\\Documents\\GitHub\\PixL-Engine\\include"
+                "C:\\Users\\MatheoVIGNAUD\\AppData\\Local\\.xmake\\packages\\**",
+                "${workspaceFolder}/**"
             ],
             "defines": [
                 "_DEBUG",
