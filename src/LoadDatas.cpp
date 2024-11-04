@@ -1,25 +1,25 @@
-#include "LoadDatas.hpp"
+#include <LoadDatas.hpp>
 
 DataLoader::DataLoader(const std::string &ldtk_file_path)
 {
     std::ifstream file(ldtk_file_path);
-
-    if (!file.is_open())
+    if (file.is_open())
+    {
+        file >> ldtkjs;
+    }
+    else
     {
         std::cerr << "Error: Could not open file " << ldtk_file_path << std::endl;
-        exit(1);
     }
 
-    nlohmann::json jsonData = nlohmann::json::parse(file);
-
-    from_json(jsonData, ldtkjs);
+    file.close();
 }
 
 DataLoader::~DataLoader()
 {
 }
 
-quicktype::LdtkJson DataLoader::get_ldtk_json() const
+LdtkJson DataLoader::get_ldtk_json()
 {
-    return ldtkjs;
+    return this->ldtkjs;
 }

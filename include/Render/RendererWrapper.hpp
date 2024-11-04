@@ -14,12 +14,18 @@ enum RendererType
 
 class RendererWrapper
 {
-public:
+protected:
     RendererWrapper(RendererType type);
+    static RendererWrapper *_instance;
+
+public:
+    static RendererWrapper *get_instance(RendererType type);
     ~RendererWrapper();
     void init();
     SDL_Window *create_window(std::string title, int width, int height);
     bool destroy_window();
+    RendererType get_renderer_type();
+    ApiModel *get_renderer() { return this->renderer; }
 
 private:
     RendererType renderer_type;

@@ -1,6 +1,6 @@
 #include <SystemEvent.hpp>
 
-SystemEvent::SystemEvent(SDL_Event *event)
+SystemEvent::SystemEvent(SDL_Event *event, SDL_Window *window)
 {
     this->_event = event;
     this->quit = false;
@@ -14,15 +14,16 @@ SystemEvent::SystemEvent(SDL_Event *event)
         this->mouseButtons[i] = false;
     }
     this->mouseWheel = 0;
+    this->window = window;
 }
 
 SystemEvent *SystemEvent::_instance = nullptr;
 
-SystemEvent *SystemEvent::getInstance(SDL_Event *event)
+SystemEvent *SystemEvent::getInstance(SDL_Event *event, SDL_Window *window)
 {
     if (SystemEvent::_instance == nullptr)
     {
-        SystemEvent::_instance = new SystemEvent(event);
+        SystemEvent::_instance = new SystemEvent(event, window);
     }
     return SystemEvent::_instance;
 }
@@ -58,4 +59,5 @@ void SystemEvent::update()
             break;
         }
     }
+    SDL_GetWindowSize(this->window, &this->windowSize.x, &this->windowSize.y);
 }

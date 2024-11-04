@@ -12,11 +12,11 @@ struct pointInt
 class SystemEvent
 {
 protected:
-    SystemEvent(SDL_Event *event);
+    SystemEvent(SDL_Event *event, SDL_Window *window);
     static SystemEvent *_instance;
 
 public:
-    static SystemEvent *getInstance(SDL_Event *event);
+    static SystemEvent *getInstance(SDL_Event *event, SDL_Window *window);
     void update();
     bool isKeyPressed(SDL_Scancode key) { return this->keyboardInputs[key]; }
     bool isMouseButtonPressed(int button) { return this->mouseButtons[button]; }
@@ -24,6 +24,7 @@ public:
     pointInt *getMousePosition() { return &this->mousePosition; }
     int16_t getMouseWheel() { return this->mouseWheel; }
     bool isQuit() { return this->quit; }
+    pointInt getWindowSize() { return this->windowSize; }
 
 private:
     SDL_Event *_event;
@@ -32,4 +33,6 @@ private:
     bool mouseButtons[3];
     int16_t mouseWheel;
     bool quit;
+    SDL_Window *window;
+    pointInt windowSize;
 };

@@ -4,8 +4,10 @@
             "name": "Win32",
             "includePath": [
                 "${default}",
-                "C:\\Users\\MatheoVIGNAUD\\AppData\\Local\\.xmake\\packages\\**",
-                "${workspaceFolder}/**"
+                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\**",
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include/***",
+                "C:\\MinGW\\x86_64-w64-mingw32\\include\\**"
             ],
             "defines": [
                 "_DEBUG",
@@ -15,7 +17,8 @@
             "windowsSdkVersion": "10.0.22000.0",
             "cStandard": "c17",
             "cppStandard": "c++17",
-            "intelliSenseMode": "gcc-x64"
+            "intelliSenseMode": "windows-gcc-x64",
+            "compilerPath": "C:/MinGW/bin/gcc.exe"
         }
     ],
     "version": 4

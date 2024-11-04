@@ -17,8 +17,12 @@ RendererWrapper::RendererWrapper(RendererType type)
     }
 }
 
+RendererWrapper *RendererWrapper::_instance = nullptr;
+
 RendererWrapper::~RendererWrapper()
 {
+    delete this->renderer;
+    SDL_Quit();
 }
 
 void RendererWrapper::init()
@@ -39,4 +43,18 @@ bool RendererWrapper::destroy_window()
 {
     SDL_DestroyWindow(this->window);
     return true;
+}
+
+RendererType RendererWrapper::get_renderer_type()
+{
+    return this->renderer_type;
+}
+
+RendererWrapper *RendererWrapper::get_instance(RendererType type)
+{
+    if (_instance == nullptr)
+    {
+        _instance = new RendererWrapper(type);
+    }
+    return _instance;
 }

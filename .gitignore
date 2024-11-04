@@ -15,5 +15,4 @@ log.txt
 log.txt
 .xmake
 build/
-/.vscode
-/.vscode
+.vscode/
