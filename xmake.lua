@@ -7,6 +7,7 @@ add_requires("libsdl")
 add_requires("libsdl_image")
 add_requires("boost")
 add_requires("nlohmann_json")
+add_requires("glu")
 
 
 target("PixL-Engine")

@@ -7,6 +7,7 @@
                 "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\**",
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/include/***",
+                "C:\\Users\\mathe\\AppData\\Local\\.xmake\\packages\\o\\opengl-headers\\2024.01.04\\5f1921e4548f4e3281b47e446c75eef6\\**",
                 "C:\\MinGW\\x86_64-w64-mingw32\\include\\**"
             ],
             "defines": [
