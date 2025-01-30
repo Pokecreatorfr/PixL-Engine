@@ -1,7 +1,7 @@
 add_rules("mode.debug", "mode.release")
 
 set_languages("c++17")
-set_optimize("fastest")
+set_optimize("none")
 
 add_requires("ffmpeg")
 add_requires("libsdl")
