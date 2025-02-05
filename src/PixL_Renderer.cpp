@@ -96,7 +96,7 @@ int PixL_Renderer::DrawPlanMode()
 
 int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
 {
-    SDL_SetTextureBlendMode(texture->_texture, SDL_BLENDMODE_BLEND);
+
     // set src rect
     SDL_Rect src_rect;
     src_rect.x = (property.src_x - property.src_w / 2) * texture->_width;
@@ -237,6 +237,7 @@ PixL_Texture *CreateTexture(const char *path)
     pixl_texture->_width = w;
     pixl_texture->_height = h;
     pixl_texture->_texture = texture;
+    SDL_SetTextureBlendMode(pixl_texture->_texture, SDL_BLENDMODE_BLEND);
 
     return pixl_texture;
 }
@@ -306,7 +307,7 @@ PixL_Texture *CreateTexture(std::vector<uint8_t> &data, int width, int height, P
 
     PixL_Texture *pixl_texture = new PixL_Texture();
     pixl_texture->_texture = texture;
-
+    SDL_SetTextureBlendMode(pixl_texture->_texture, SDL_BLENDMODE_BLEND);
     return pixl_texture;
 }
 

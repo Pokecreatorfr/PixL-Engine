@@ -14,15 +14,15 @@ int main(int argc, char *argv[])
 	PixL_Draw_Property property;
 	property.x = 0.5;
 	property.y = 0.5;
-	property.w = 0.25;
-	property.h = 0.25;
+	property.w = 0.5;
+	property.h = 0.5;
 	property._plan = 1;
 
 	// Add the texture to the renderer
 	int id = PixL_AddDrawable(texture, property);
 
 	property.r = 150;
-	property.a = 255;
+	property.a = 200;
 	int id1 = PixL_AddDrawable(texture, property);
 
 	float x = 0.25;
