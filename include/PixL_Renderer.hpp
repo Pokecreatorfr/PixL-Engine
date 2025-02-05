@@ -60,7 +60,7 @@ protected:
     uint32_t _flags;
     SDL_Window *_window = nullptr;
     SDL_Renderer *_renderer = nullptr;
-    std::vector<PixL_Draw_Command> _drawables = std::vector<PixL_Draw_Command>();
+    std::vector<PixL_Draw_Command *> _drawables = std::vector<PixL_Draw_Command *>();
 
     int Draw();
     int Present();

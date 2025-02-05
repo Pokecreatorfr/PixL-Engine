@@ -71,23 +71,23 @@ int PixL_Renderer::DrawPlanMode()
     SDL_SetRenderDrawColor(this->_renderer, 0, 0, 0, 255);
     SDL_RenderClear(this->_renderer);
 
-    // sort drawables by plan
-    std::sort(_drawables.begin(), _drawables.end(), [](PixL_Draw_Command &a, PixL_Draw_Command &b)
-              { return a.property._plan < b.property._plan; });
+    // sort drawables
+    std::sort(_drawables.begin(), _drawables.end(), [](PixL_Draw_Command *a, PixL_Draw_Command *b)
+              { return a->property._plan < b->property._plan; });
 
     for (int i = 0; i < _drawables.size(); i++)
     {
         // check if drawable on screen
-        if (_drawables[i].property.x + _drawables[i].property.w / 2 > 0 && _drawables[i].property.x - _drawables[i].property.w / 2 < 1 && _drawables[i].property.y + _drawables[i].property.h / 2 > 0 && _drawables[i].property.y - _drawables[i].property.h / 2 < 1)
+        if (_drawables[i]->property.x + _drawables[i]->property.w / 2 > 0 && _drawables[i]->property.x - _drawables[i]->property.w / 2 < 1 && _drawables[i]->property.y + _drawables[i]->property.h / 2 > 0 && _drawables[i]->property.y - _drawables[i]->property.h / 2 < 1)
         {
             // check drawable type
-            if (_drawables[i].drawable->getType() == PixL_DrawableType::PIXL_DRAWABLE_TEXTURE)
+            if (_drawables[i]->drawable->getType() == PixL_DrawableType::PIXL_DRAWABLE_TEXTURE)
             {
-                draw_texture((PixL_Texture *)_drawables[i].drawable, _drawables[i].property, w, h);
+                draw_texture((PixL_Texture *)_drawables[i]->drawable, _drawables[i]->property, w, h);
             }
-            else if (_drawables[i].drawable->getType() == PixL_DrawableType::PIXL_DRAWABLE_TILEMAP)
+            else if (_drawables[i]->drawable->getType() == PixL_DrawableType::PIXL_DRAWABLE_TILEMAP)
             {
-                draw_tilemap((PixL_Tilemap *)_drawables[i].drawable, w, h);
+                draw_tilemap((PixL_Tilemap *)_drawables[i]->drawable, w, h);
             }
         }
     }
@@ -96,9 +96,6 @@ int PixL_Renderer::DrawPlanMode()
 
 int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
 {
-    // set texture color modulation
-    SDL_SetTextureColorMod(texture->_texture, property.r, property.g, property.b);
-    SDL_SetTextureAlphaMod(texture->_texture, property.a);
 
     // set src rect
     SDL_Rect src_rect;
@@ -114,6 +111,9 @@ int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &prope
     dst_rect.w = property.w * screenw;
     dst_rect.h = property.h * screenh;
 
+    SDL_SetRenderDrawColor(this->_renderer, property.r, property.g, property.b, 255); // Rouge
+    SDL_RenderFillRect(this->_renderer, &dst_rect);
+
     uint8_t flip = 0;
     if (property.flip_h)
     {
@@ -123,9 +123,23 @@ int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &prope
     {
         flip |= SDL_FLIP_VERTICAL;
     }
+    if (!property.flip_h && !property.flip_v)
+    {
+        flip = SDL_FLIP_NONE;
+    }
+
+    // set texture color modulation
+    SDL_SetTextureColorMod(texture->_texture, property.r, property.g, property.b);
+    SDL_SetTextureAlphaMod(texture->_texture, property.a);
+
+    if (property.rot != 0)
+    {
+        SDL_RenderCopyEx(this->_renderer, texture->_texture, &src_rect, &dst_rect, property.rot, NULL, (SDL_RendererFlip)flip);
+        return 0;
+    }
 
     // render texture
-    SDL_RenderCopyEx(this->_renderer, texture->_texture, &src_rect, &dst_rect, property.rot, NULL, (SDL_RendererFlip)flip);
+    SDL_RenderCopyEx(this->_renderer, texture->_texture, &src_rect, &dst_rect, NULL, NULL, (SDL_RendererFlip)flip);
 
     return 0;
 }
@@ -310,13 +324,18 @@ uint16_t PixL_AddDrawable(PixL_Drawable *drawable, PixL_Draw_Property property)
     uint16_t id = 0;
     for (int i = 0; i < PixL_Renderer::_instance->_drawables.size(); i++)
     {
-        if (PixL_Renderer::_instance->_drawables[i].id == id)
+        if (PixL_Renderer::_instance->_drawables[i]->id == id)
         {
             id++;
         }
     }
 
-    PixL_Renderer::_instance->_drawables.push_back({id, property, drawable});
+    PixL_Draw_Command *command = new PixL_Draw_Command();
+    command->id = id;
+    command->property = property;
+    command->drawable = drawable;
+
+    PixL_Renderer::_instance->_drawables.push_back(command);
 
     return id;
 }
@@ -331,7 +350,7 @@ void PixL_RemoveDrawable(uint16_t id)
 
     for (int i = 0; i < PixL_Renderer::_instance->_drawables.size(); i++)
     {
-        if (PixL_Renderer::_instance->_drawables[i].id == id)
+        if (PixL_Renderer::_instance->_drawables[i]->id == id)
         {
             PixL_Renderer::_instance->_drawables.erase(PixL_Renderer::_instance->_drawables.begin() + i);
             return;
@@ -349,9 +368,9 @@ PixL_Draw_Property *PixL_GetDrawableProperty(uint16_t id)
 
     for (int i = 0; i < PixL_Renderer::_instance->_drawables.size(); i++)
     {
-        if (PixL_Renderer::_instance->_drawables[i].id == id)
+        if (PixL_Renderer::_instance->_drawables[i]->id == id)
         {
-            return &PixL_Renderer::_instance->_drawables[i].property;
+            return &PixL_Renderer::_instance->_drawables[i]->property;
         }
     }
 
