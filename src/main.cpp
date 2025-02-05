@@ -21,9 +21,8 @@ int main(int argc, char *argv[])
 	// Add the texture to the renderer
 	int id = PixL_AddDrawable(texture, property);
 
-	property.rot = 90;
-	property.r = 100;
-
+	property.r = 150;
+	property.a = 255;
 	int id1 = PixL_AddDrawable(texture, property);
 
 	float x = 0.25;
@@ -121,10 +120,11 @@ int main(int argc, char *argv[])
 		prop1->x = x1;
 		prop1->y = y1;
 
-		prop1->_plan = rand() % 3;
-		prop1->rot += 3;
+		// prop1->_plan = rand() % 3;
+		prop1->rot += 1;
 
-		prop->_plan = rand() % 3;
+		// prop->_plan = rand() % 3;
+		prop->rot -= 1;
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e))

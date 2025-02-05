@@ -91,15 +91,15 @@ protected:
 struct PixL_Draw_Property
 {
     // plan of the texture, bigger plan will be rendered on top of smaller plan. Only used in plan mode
-    uint16_t _plan;
+    uint16_t _plan = 0;
 
     // center of the texture in the window, between 0 and 1 (0.5 is the center of the window), bigger than 1 will make the center of the texture outside of the window
-    float x;
-    float y;
+    float x = 0.5;
+    float y = 0.5;
 
     // width and height of the texture, between 0 and 1 (1 is the full size of the window), bigger than 1 will make the texture bigger than the window
-    float w;
-    float h;
+    float w = 1;
+    float h = 1;
 
     // src rect of the texture, between 0 and 1 (1 is the full size of the texture)
     float src_x = 0.5;

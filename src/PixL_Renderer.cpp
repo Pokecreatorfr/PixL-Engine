@@ -96,7 +96,7 @@ int PixL_Renderer::DrawPlanMode()
 
 int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
 {
-
+    SDL_SetTextureBlendMode(texture->_texture, SDL_BLENDMODE_BLEND);
     // set src rect
     SDL_Rect src_rect;
     src_rect.x = (property.src_x - property.src_w / 2) * texture->_width;
@@ -110,9 +110,6 @@ int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &prope
     dst_rect.y = (property.y - property.h / 2) * screenh;
     dst_rect.w = property.w * screenw;
     dst_rect.h = property.h * screenh;
-
-    SDL_SetRenderDrawColor(this->_renderer, property.r, property.g, property.b, 255); // Rouge
-    SDL_RenderFillRect(this->_renderer, &dst_rect);
 
     uint8_t flip = 0;
     if (property.flip_h)
