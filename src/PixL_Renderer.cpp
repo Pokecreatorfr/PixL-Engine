@@ -96,6 +96,11 @@ int PixL_Renderer::DrawPlanMode()
 
 int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
 {
+    // check if affine
+    if (property.mode7)
+    {
+        return draw_mode7(texture, property, screenw, screenh);
+    }
 
     // set src rect
     SDL_Rect src_rect;
@@ -129,20 +134,71 @@ int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &prope
     SDL_SetTextureColorMod(texture->_texture, property.r, property.g, property.b);
     SDL_SetTextureAlphaMod(texture->_texture, property.a);
 
-    if (property.rot != 0)
-    {
-        SDL_RenderCopyEx(this->_renderer, texture->_texture, &src_rect, &dst_rect, property.rot, NULL, (SDL_RendererFlip)flip);
-        return 0;
-    }
-
     // render texture
-    SDL_RenderCopyEx(this->_renderer, texture->_texture, &src_rect, &dst_rect, NULL, NULL, (SDL_RendererFlip)flip);
+    SDL_RenderCopyEx(this->_renderer, texture->_texture, &src_rect, &dst_rect, property.rot, NULL, (SDL_RendererFlip)flip);
 
     return 0;
 }
 
 int PixL_Renderer::draw_tilemap(PixL_Tilemap *tilemap, int screenw, int screenh)
 {
+    return 0;
+}
+
+int PixL_Renderer::draw_mode7(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
+{
+    float uv[4][2] = {
+        {property.src_x - property.src_w / 2, property.src_y - property.src_h / 2},
+        {property.src_x + property.src_w / 2, property.src_y - property.src_h / 2},
+        {property.src_x + property.src_w / 2, property.src_y + property.src_h / 2},
+        {property.src_x - property.src_w / 2, property.src_y + property.src_h / 2}};
+
+    float xy[4][3] = {
+        {property.mode7_horizon, 0, 0},
+        {property.mode7_horizon, 1, 0},
+        {1 + property.mode7_horizon, 1, 0},
+        {1 + property.mode7_horizon, 0, 0}};
+
+    float rot_x = property.mode7_cam_rot_x * 3.1415 / 180.0;
+    float rot_y = property.mode7_cam_rot_y * 3.1415 / 180.0;
+    float rot_z = property.mode7_cam_rot_z * 3.1415 / 180.0;
+
+    float rot_matrix_x[3][3] = {
+        {1, 0, 0},
+        {0, cos(rot_x), -sin(rot_x)},
+        {0, sin(rot_x), cos(rot_x)}};
+
+    float rot_matrix_y[3][3] = {
+        {cos(rot_y), 0, sin(rot_y)},
+        {0, 1, 0},
+        {-sin(rot_y), 0, cos(rot_y)}};
+
+    float rot_matrix_z[3][3] = {
+        {cos(rot_z), -sin(rot_z), 0},
+        {sin(rot_z), cos(rot_z), 0},
+        {0, 0, 1}};
+
+    for (int i = 0; i < 4; i++)
+    {
+        xy[i][0] -= 0.5 - property.mode7_cam_x;
+        xy[i][1] -= 0.5 - property.mode7_cam_y;
+        xy[i][2] -= 0.5 - property.mode7_cam_z;
+
+        xy[i][0] *= property.mode7_scale;
+        xy[i][1] *= property.mode7_scale;
+        xy[i][2] *= property.mode7_scale;
+
+        float x = xy[i][0], z = xy[i][2];
+        xy[i][0] = x * rot_matrix_y[0][0] + z * rot_matrix_y[0][2];
+        xy[i][2] = x * rot_matrix_y[2][0] + z * rot_matrix_y[2][2];
+
+        float y = xy[i][1];
+        xy[i][1] = y * rot_matrix_x[1][1] + xy[i][2] * rot_matrix_x[1][2];
+        xy[i][2] = y * rot_matrix_x[2][1] + xy[i][2] * rot_matrix_x[2][2];
+    }
+
+    //
+
     return 0;
 }
 

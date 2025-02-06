@@ -96,6 +96,12 @@
         "valarray": "cpp",
         "variant": "cpp",
         "xhash": "cpp",
-        "xtree": "cpp"
+        "xtree": "cpp",
+        "*.tcc": "cpp",
+        "string_view": "cpp",
+        "semaphore": "cpp",
+        "text_encoding": "cpp",
+        "cinttypes": "cpp",
+        "codecvt": "cpp"
     }
 }

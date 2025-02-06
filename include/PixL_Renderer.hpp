@@ -70,6 +70,7 @@ protected:
 
     int draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
     int draw_tilemap(PixL_Tilemap *tilemap, int screenw, int screenh);
+    int draw_mode7(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
 
     // friend functions
 
@@ -121,6 +122,23 @@ struct PixL_Draw_Property
     uint8_t g = 255;
     uint8_t b = 255;
     uint8_t a = 255;
+
+    // mode7 properties
+    bool mode7 = false;
+    bool mode7_repeat = false;
+    float mode7_scale = 1.0f;
+
+    // in 2D based (so y and z are inverted compared to 3D)
+    float mode7_cam_x = 0.5f;
+    float mode7_cam_y = 0.5f;
+    float mode7_cam_z = 0.5f;
+
+    // mode7 rotation in degrees (x, y, z) clockwise
+    float mode7_cam_rot_x = 0.0f;
+    float mode7_cam_rot_y = 0.0f;
+    float mode7_cam_rot_z = 0.0f;
+
+    float mode7_horizon = 0.5f;
 };
 
 struct PixL_Draw_Command
