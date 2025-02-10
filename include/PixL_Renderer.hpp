@@ -131,14 +131,14 @@ struct PixL_Draw_Property
     // in 2D based (so y and z are inverted compared to 3D)
     float mode7_cam_x = 0.5f;
     float mode7_cam_y = 0.5f;
-    float mode7_cam_z = 0.5f;
+    float mode7_cam_z = 1.0f;
 
     // mode7 rotation in degrees (x, y, z) clockwise
     float mode7_cam_rot_x = 0.0f;
     float mode7_cam_rot_y = 0.0f;
     float mode7_cam_rot_z = 0.0f;
 
-    float mode7_horizon = 0.5f;
+    float mode7_focal = 1.0f;
 };
 
 struct PixL_Draw_Command

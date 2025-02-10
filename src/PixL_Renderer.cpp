@@ -149,15 +149,16 @@ int PixL_Renderer::draw_mode7(PixL_Texture *texture, PixL_Draw_Property &propert
 {
     float uv[4][2] = {
         {property.src_x - property.src_w / 2, property.src_y - property.src_h / 2},
-        {property.src_x + property.src_w / 2, property.src_y - property.src_h / 2},
+        {property.src_x - property.src_w / 2, property.src_y + property.src_h / 2},
         {property.src_x + property.src_w / 2, property.src_y + property.src_h / 2},
-        {property.src_x - property.src_w / 2, property.src_y + property.src_h / 2}};
+        {property.src_x + property.src_w / 2, property.src_y - property.src_h / 2},
+    };
 
     float xy[4][3] = {
-        {property.mode7_horizon, 0, 0},
-        {property.mode7_horizon, 1, 0},
-        {1 + property.mode7_horizon, 1, 0},
-        {1 + property.mode7_horizon, 0, 0}};
+        {0 + 0.5f - property.mode7_cam_x, 0 + 0.5f - property.mode7_cam_y, property.mode7_cam_z},
+        {0 + 0.5f - property.mode7_cam_x, 1 + 0.5f - property.mode7_cam_y, property.mode7_cam_z},
+        {1 + 0.5f - property.mode7_cam_x, 1 + 0.5f - property.mode7_cam_y, property.mode7_cam_z},
+        {1 + 0.5f - property.mode7_cam_x, 0 + 0.5f - property.mode7_cam_y, property.mode7_cam_z}};
 
     float rot_x = property.mode7_cam_rot_x * 3.1415 / 180.0;
     float rot_y = property.mode7_cam_rot_y * 3.1415 / 180.0;
@@ -180,24 +181,61 @@ int PixL_Renderer::draw_mode7(PixL_Texture *texture, PixL_Draw_Property &propert
 
     for (int i = 0; i < 4; i++)
     {
-        xy[i][0] -= 0.5 - property.mode7_cam_x;
-        xy[i][1] -= 0.5 - property.mode7_cam_y;
-        xy[i][2] -= 0.5 - property.mode7_cam_z;
-
-        xy[i][0] *= property.mode7_scale;
-        xy[i][1] *= property.mode7_scale;
-        xy[i][2] *= property.mode7_scale;
-
-        float x = xy[i][0], z = xy[i][2];
-        xy[i][0] = x * rot_matrix_y[0][0] + z * rot_matrix_y[0][2];
-        xy[i][2] = x * rot_matrix_y[2][0] + z * rot_matrix_y[2][2];
-
+        float x = xy[i][0];
         float y = xy[i][1];
-        xy[i][1] = y * rot_matrix_x[1][1] + xy[i][2] * rot_matrix_x[1][2];
-        xy[i][2] = y * rot_matrix_x[2][1] + xy[i][2] * rot_matrix_x[2][2];
+        float z = xy[i][2];
+
+        xy[i][0] = rot_matrix_x[0][0] * x + rot_matrix_x[0][1] * y + rot_matrix_x[0][2] * z;
+        xy[i][1] = rot_matrix_x[1][0] * x + rot_matrix_x[1][1] * y + rot_matrix_x[1][2] * z;
+        xy[i][2] = rot_matrix_x[2][0] * x + rot_matrix_x[2][1] * y + rot_matrix_x[2][2] * z;
+
+        x = xy[i][0];
+        y = xy[i][1];
+        z = xy[i][2];
+
+        xy[i][0] = rot_matrix_y[0][0] * x + rot_matrix_y[0][1] * y + rot_matrix_y[0][2] * z;
+        xy[i][1] = rot_matrix_y[1][0] * x + rot_matrix_y[1][1] * y + rot_matrix_y[1][2] * z;
+        xy[i][2] = rot_matrix_y[2][0] * x + rot_matrix_y[2][1] * y + rot_matrix_y[2][2] * z;
+
+        x = xy[i][0];
+        y = xy[i][1];
+        z = xy[i][2];
+
+        xy[i][0] = rot_matrix_z[0][0] * x + rot_matrix_z[0][1] * y + rot_matrix_z[0][2] * z;
+        xy[i][1] = rot_matrix_z[1][0] * x + rot_matrix_z[1][1] * y + rot_matrix_z[1][2] * z;
+        xy[i][2] = rot_matrix_z[2][0] * x + rot_matrix_z[2][1] * y + rot_matrix_z[2][2] * z;
     }
 
-    //
+    // perspective projection
+    for (int i = 0; i < 4; i++)
+    {
+        float z_proj = xy[i][2];
+
+        if (z_proj < 0.1f)
+            z_proj = 0.1f;
+
+        xy[i][0] = (xy[i][0] / z_proj) * property.mode7_focal;
+        xy[i][1] = (xy[i][1] / z_proj) * property.mode7_focal;
+
+        xy[i][0] = xy[i][0] * screenw;
+        xy[i][1] = xy[i][1] * screenh;
+    }
+
+    SDL_Color color[4] = {
+        {property.r, property.g, property.b, property.a},
+        {property.r, property.g, property.b, property.a},
+        {property.r, property.g, property.b, property.a},
+        {property.r, property.g, property.b, property.a}};
+
+    SDL_FPoint points[4] = {
+        {xy[0][0], xy[0][1]},
+        {xy[1][0], xy[1][1]},
+        {xy[2][0], xy[2][1]},
+        {xy[3][0], xy[3][1]}};
+
+    int indices[6] = {0, 1, 2, 0, 2, 3};
+
+    SDL_RenderGeometryRaw(this->_renderer, texture->_texture, (float *)points, sizeof(SDL_FPoint), color, sizeof(SDL_Color), (float *)uv, sizeof(float) * 2, 4, indices, 6, 4);
 
     return 0;
 }
