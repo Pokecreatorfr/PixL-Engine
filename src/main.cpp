@@ -12,9 +12,6 @@ int main(int argc, char *argv[])
 	PixL_Texture *texture = CreateTexture("test.png");
 
 	PixL_Draw_Property property;
-	property.mode7 = true;
-	property.mode7_cam_x = 0.1;
-	property.mode7_cam_y = 0.1;
 
 	// Add the texture to the renderer
 	int id = PixL_AddDrawable(texture, property);
@@ -39,20 +36,21 @@ int main(int argc, char *argv[])
 			{
 				if (e.key.keysym.sym == SDLK_UP)
 				{
-					prop->mode7_cam_rot_x += 0.1;
+					if (prop->mosaic_mode > 0)
+					{
+						prop->mosaic_mode -= 1;
+					}
+					std::cout << "Mosaic mode :" << prop->mosaic_mode << std::endl;
 				}
 				if (e.key.keysym.sym == SDLK_DOWN)
 				{
-					prop->mode7_cam_rot_x -= 0.1;
+					if (prop->mosaic_mode < 255)
+					{
+						prop->mosaic_mode += 1;
+					}
+					std::cout << "Mosaic mode :" << prop->mosaic_mode << std::endl;
 				}
-				if (e.key.keysym.sym == SDLK_LEFT)
-				{
-					prop->mode7_cam_rot_y += 0.1;
-				}
-				if (e.key.keysym.sym == SDLK_RIGHT)
-				{
-					prop->mode7_cam_rot_y -= 0.1;
-				}
+
 			}
 		}
 		// std::cout << "1" << std::endl;

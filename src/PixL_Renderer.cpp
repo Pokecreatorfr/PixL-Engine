@@ -96,6 +96,12 @@ int PixL_Renderer::DrawPlanMode()
 
 int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
 {
+    SDL_Texture * current_texture = texture->_texture;
+    if(property.mosaic_mode != 0)
+    {
+        current_texture = mosaic(texture, property, screenw, screenh);
+    }
+
     // check if affine
     if (property.mode7)
     {
@@ -131,11 +137,16 @@ int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &prope
     }
 
     // set texture color modulation
-    SDL_SetTextureColorMod(texture->_texture, property.r, property.g, property.b);
-    SDL_SetTextureAlphaMod(texture->_texture, property.a);
+    SDL_SetTextureColorMod(current_texture, property.r, property.g, property.b);
+    SDL_SetTextureAlphaMod(current_texture, property.a);
 
     // render texture
-    SDL_RenderCopyEx(this->_renderer, texture->_texture, &src_rect, &dst_rect, property.rot, NULL, (SDL_RendererFlip)flip);
+    SDL_RenderCopyEx(this->_renderer, current_texture, &src_rect, &dst_rect, property.rot, NULL, (SDL_RendererFlip)flip);
+
+    if (current_texture != texture->_texture)
+    {
+        SDL_DestroyTexture(current_texture);
+    }
 
     return 0;
 }
@@ -209,13 +220,12 @@ int PixL_Renderer::draw_mode7(PixL_Texture *texture, PixL_Draw_Property &propert
     // perspective projection
     for (int i = 0; i < 4; i++)
     {
-        float z_proj = xy[i][2];
 
-        if (z_proj < 0.1f)
-            z_proj = 0.1f;
+        if (xy[i][2] < 0.1f)
+            xy[i][2] = 0.1f;
 
-        xy[i][0] = (xy[i][0] / z_proj) * property.mode7_focal;
-        xy[i][1] = (xy[i][1] / z_proj) * property.mode7_focal;
+        xy[i][0] = (xy[i][0] / xy[i][2]) * property.mode7_focal;
+        xy[i][1] = (xy[i][1] / xy[i][2]) * property.mode7_focal;
 
         xy[i][0] = xy[i][0] * screenw;
         xy[i][1] = xy[i][1] * screenh;
@@ -238,6 +248,64 @@ int PixL_Renderer::draw_mode7(PixL_Texture *texture, PixL_Draw_Property &propert
     SDL_RenderGeometryRaw(this->_renderer, texture->_texture, (float *)points, sizeof(SDL_FPoint), color, sizeof(SDL_Color), (float *)uv, sizeof(float) * 2, 4, indices, 6, 4);
 
     return 0;
+}
+
+SDL_Texture *PixL_Renderer::mosaic(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
+{
+
+    int texture_w, texture_h;
+    SDL_QueryTexture(texture->_texture, NULL, NULL, &texture_w, &texture_h);
+
+    float aspect_ratio = property.w / property.h;
+
+    // Adapter la taille de la mosaïque
+    int mosaic_w = property.mosaic_mode * aspect_ratio;
+    int mosaic_h = property.mosaic_mode;
+
+    void *pixels = nullptr;
+    int pitch = 0;
+
+    if (SDL_LockTexture(texture->_texture, nullptr, &pixels, &pitch) != 0) {
+        std::cerr << "Erreur lors du verrouillage de la texture : " << SDL_GetError() << std::endl;
+        return nullptr;
+    }
+
+    // Créer une texture pour stocker la mosaïque
+    SDL_Texture *new_texture = SDL_CreateTexture(this->_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, mosaic_w, mosaic_h);
+    void *new_pixels = nullptr;
+    int new_pitch = 0;
+
+    if (SDL_LockTexture(new_texture, nullptr, &new_pixels, &new_pitch) != 0) {
+        std::cerr << "Erreur lors du verrouillage de la nouvelle texture : " << SDL_GetError() << std::endl;
+        return nullptr;
+    }
+
+    // Parcourir la texture par blocs de mosaïque
+    for (int my = 0; my < mosaic_h; my++) {
+        for (int mx = 0; mx < mosaic_w; mx++) {
+            uint8_t r , g, b ,a ;
+
+            int pos_x = texture_w / mosaic_w * mx;
+            int pos_y = texture_h / mosaic_h * my;
+
+            // Récupérer la couleur du pixel
+            uint8_t *pixel = (uint8_t *)pixels + (pos_y * pitch) + (pos_x * 4);
+
+            r = pixel[0];
+            g = pixel[1];
+            b = pixel[2];
+            a = pixel[3];
+
+
+
+
+        }
+    }
+
+    // Déverrouiller les textures
+    SDL_UnlockTexture(texture->_texture);
+    SDL_UnlockTexture(new_texture);
+    return new_texture;
 }
 
 PixL_Renderer *PixL_Renderer::_instance = nullptr;
@@ -288,7 +356,7 @@ SDL_Window *CreateWindow(const char *title, int x, int y, int w, int h, Uint32 f
         return nullptr;
     }
 
-    PixL_Renderer::_instance->_window = SDL_CreateWindow(title, x, y, w, h, flags);
+    PixL_Renderer::_instance->_window = SDL_CreateWindow(title, x, y, w, h, SDL_WINDOW_RESIZABLE);
     if (PixL_Renderer::_instance->_window == nullptr)
     {
         std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
@@ -311,22 +379,42 @@ SDL_Window *GetWindow()
 
 PixL_Texture *CreateTexture(const char *path)
 {
+    
+
     if (PixL_Renderer::_instance == nullptr || PixL_Renderer::_instance->_renderer == nullptr)
     {
         std::cerr << "Renderer not initialized or renderer not created!" << std::endl;
         return nullptr;
     }
 
-    SDL_Texture *texture = IMG_LoadTexture(PixL_Renderer::_instance->_renderer, path);
+    SDL_Surface *surface = IMG_Load(path);
+    if (!surface) {
+        std::cerr << "Erreur IMG_Load: " << IMG_GetError() << std::endl;
+        return nullptr;
+    }
+
+    // convert surface to SDL_PIXELFORMAT_RGBA8888
+    surface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA8888, 0);
+
+    SDL_Texture *texture = SDL_CreateTexture(PixL_Renderer::_instance->_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, surface->w, surface->h);
     if (texture == nullptr)
     {
         std::cerr << "Texture could not be created! SDL_Error: " << SDL_GetError() << std::endl;
         return nullptr;
+    }    
+
+    if( SDL_UpdateTexture(texture, NULL, surface->pixels, surface->pitch) != 0)
+    {
+        std::cerr << "Erreur SDL_UpdateTexture: " << SDL_GetError() << std::endl;
+        return nullptr;
     }
+
+
+    SDL_FreeSurface(surface);
 
     PixL_Texture *pixl_texture = new PixL_Texture();
 
-    int w, h;
+    int  w, h;
     SDL_QueryTexture(texture, NULL, NULL, &w, &h);
     pixl_texture->_width = w;
     pixl_texture->_height = h;
@@ -390,7 +478,7 @@ PixL_Texture *CreateTexture(std::vector<uint8_t> &data, int width, int height, P
         break;
     }
 
-    SDL_Texture *texture = SDL_CreateTexture(PixL_Renderer::_instance->_renderer, pixel_format, SDL_TEXTUREACCESS_STATIC, width, height);
+    SDL_Texture *texture = SDL_CreateTexture(PixL_Renderer::_instance->_renderer, pixel_format, SDL_TEXTUREACCESS_STREAMING, width, height);
     if (texture == nullptr)
     {
         std::cerr << "Texture could not be created! SDL_Error: " << SDL_GetError() << std::endl;

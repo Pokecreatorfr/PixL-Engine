@@ -71,6 +71,7 @@ protected:
     int draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
     int draw_tilemap(PixL_Tilemap *tilemap, int screenw, int screenh);
     int draw_mode7(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
+    SDL_Texture *mosaic(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
 
     // friend functions
 
@@ -139,6 +140,10 @@ struct PixL_Draw_Property
     float mode7_cam_rot_z = 0.0f;
 
     float mode7_focal = 1.0f;
+
+
+    // mosaic properties
+    uint8_t mosaic_mode = 0; // 0: no mosaic, 1-255: mosaic level (1 is the smallest level) 
 };
 
 struct PixL_Draw_Command
