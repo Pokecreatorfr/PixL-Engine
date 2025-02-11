@@ -141,9 +141,8 @@ struct PixL_Draw_Property
 
     float mode7_focal = 1.0f;
 
-
     // mosaic properties
-    uint8_t mosaic_mode = 0; // 0: no mosaic, 1-255: mosaic level (1 is the smallest level) 
+    uint8_t mosaic_mode = 0; // 0: no mosaic, 1-255: mosaic level (1 is the smallest level)
 };
 
 struct PixL_Draw_Command
@@ -174,7 +173,8 @@ protected:
 
     uint16_t _width;
     uint16_t _height;
-    SDL_Texture *_texture = nullptr; // Membres 'protected'
+    SDL_Texture *_texture = nullptr;
+    SDL_Surface *_surface = nullptr; // pour les effets gérés par cpu
 
     friend PixL_Texture *CreateTexture(const char *path);
     friend PixL_Texture *CreateTexture(std::vector<uint8_t> &data, int width, int height, PixelDataFormat format);

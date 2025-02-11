@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 					{
 						prop->mosaic_mode -= 1;
 					}
-					std::cout << "Mosaic mode :" << prop->mosaic_mode << std::endl;
+					std::cout << "Mosaic mode :" << (int)prop->mosaic_mode << std::endl;
 				}
 				if (e.key.keysym.sym == SDLK_DOWN)
 				{
@@ -48,9 +48,8 @@ int main(int argc, char *argv[])
 					{
 						prop->mosaic_mode += 1;
 					}
-					std::cout << "Mosaic mode :" << prop->mosaic_mode << std::endl;
+					std::cout << "Mosaic mode :" << (int)prop->mosaic_mode << std::endl;
 				}
-
 			}
 		}
 		// std::cout << "1" << std::endl;
