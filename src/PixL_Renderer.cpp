@@ -293,8 +293,8 @@ SDL_Texture *PixL_Renderer::mosaic(PixL_Texture *texture, PixL_Draw_Property &pr
     {
         for (int y = 0; y < mosaic_h; y++)
         {
-            int texture_x = (texture_w / mosaic_w) * (x + 0.5);
-            int texture_y = (texture_h / mosaic_h) * (y + 0.5);
+            int texture_x = ((float)texture_w / mosaic_w) * (x + 0.5f);
+            int texture_y = ((float)texture_h / mosaic_h) * (y + 0.5f);
 
             texture_x = std::min(texture_x, texture_w - 1);
             texture_y = std::min(texture_y, texture_h - 1);

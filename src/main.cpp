@@ -62,8 +62,8 @@ int main(int argc, char *argv[])
 
 		auto end = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsed = end - start;
-		std::cout << "Frame time: " << elapsed.count() << std::endl;
-		std::cout << "FPS: " << 1 / elapsed.count() << std::endl;
+		// std::cout << "Frame time: " << elapsed.count() << std::endl;
+		// std::cout << "FPS: " << 1 / elapsed.count() << std::endl;
 	}
 
 	return 0;
