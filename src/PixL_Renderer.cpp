@@ -97,9 +97,10 @@ int PixL_Renderer::DrawPlanMode()
 int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
 {
     SDL_Texture *current_texture = texture->_texture;
-    if (property.mosaic_mode != 0)
+
+    if (this->mods_texture(texture, property))
     {
-        current_texture = mosaic(texture, property, screenw, screenh);
+        current_texture = texture->_texture_mod;
     }
 
     // check if affine
@@ -142,11 +143,6 @@ int PixL_Renderer::draw_texture(PixL_Texture *texture, PixL_Draw_Property &prope
 
     // render texture
     SDL_RenderCopyEx(this->_renderer, current_texture, &src_rect, &dst_rect, property.rot, NULL, (SDL_RendererFlip)flip);
-
-    if (property.mosaic_mode != 0)
-    {
-        SDL_DestroyTexture(current_texture);
-    }
 
     return 0;
 }
@@ -250,6 +246,25 @@ int PixL_Renderer::draw_mode7(PixL_Texture *texture, PixL_Draw_Property &propert
     return 0;
 }
 
+bool PixL_Renderer::mods_texture(PixL_Texture *texture, PixL_Draw_Property &property)
+{
+    bool mod = false;
+    int screenw, screenh;
+    SDL_GetWindowSize(this->_window, &screenw, &screenh);
+    if (property.mosaic_mode != 0)
+    {
+        if (texture->_texture_mod == nullptr || texture->_mosaic_mode != property.mosaic_mode)
+        {
+            std::cout << "Mosaic mode: " << (int)property.mosaic_mode << std::endl;
+            texture->_texture_mod = mosaic(texture, property, screenw, screenh);
+            texture->_mosaic_mode = property.mosaic_mode;
+        }
+        mod = true;
+    }
+
+    return mod;
+}
+
 SDL_Texture *PixL_Renderer::mosaic(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh)
 {
 
@@ -278,8 +293,8 @@ SDL_Texture *PixL_Renderer::mosaic(PixL_Texture *texture, PixL_Draw_Property &pr
     {
         for (int y = 0; y < mosaic_h; y++)
         {
-            int texture_x = (texture_w / mosaic_w) * (x + 1);
-            int texture_y = (texture_h / mosaic_h) * (y + 1);
+            int texture_x = (texture_w / mosaic_w) * (x + 0.5);
+            int texture_y = (texture_h / mosaic_h) * (y + 0.5);
 
             texture_x = std::min(texture_x, texture_w - 1);
             texture_y = std::min(texture_y, texture_h - 1);

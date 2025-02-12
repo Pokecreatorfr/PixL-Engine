@@ -1,4 +1,5 @@
 #include <PixL_Renderer.hpp>
+#include <chrono>
 #include <iostream>
 #include <thread>
 
@@ -18,11 +19,14 @@ int main(int argc, char *argv[])
 
 	PixL_Draw_Property *prop = PixL_GetDrawableProperty(id);
 
+	// chrono for time tracking
+	auto start = std::chrono::high_resolution_clock::now();
+
 	bool quit = false;
 	while (!quit)
 	{
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 60));
+		start = std::chrono::high_resolution_clock::now();
+		// std::this_thread::sleep_for(std::chrono::milliseconds(1000 / 60));
 
 		SDL_Event e;
 		while (SDL_PollEvent(&e))
@@ -44,7 +48,7 @@ int main(int argc, char *argv[])
 				}
 				if (e.key.keysym.sym == SDLK_DOWN)
 				{
-					if (prop->mosaic_mode < 255)
+					if (prop->mosaic_mode < 254)
 					{
 						prop->mosaic_mode += 1;
 					}
@@ -55,6 +59,11 @@ int main(int argc, char *argv[])
 		// std::cout << "1" << std::endl;
 		PixL_Draw();
 		PixL_Present();
+
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double> elapsed = end - start;
+		std::cout << "Frame time: " << elapsed.count() << std::endl;
+		std::cout << "FPS: " << 1 / elapsed.count() << std::endl;
 	}
 
 	return 0;

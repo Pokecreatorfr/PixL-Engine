@@ -71,6 +71,9 @@ protected:
     int draw_texture(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
     int draw_tilemap(PixL_Tilemap *tilemap, int screenw, int screenh);
     int draw_mode7(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
+
+    // effects functions
+    bool mods_texture(PixL_Texture *texture, PixL_Draw_Property &property);
     SDL_Texture *mosaic(PixL_Texture *texture, PixL_Draw_Property &property, int screenw, int screenh);
 
     // friend functions
@@ -174,7 +177,11 @@ protected:
     uint16_t _width;
     uint16_t _height;
     SDL_Texture *_texture = nullptr;
+    SDL_Texture *_texture_mod = nullptr;
     SDL_Surface *_surface = nullptr; // pour les effets gérés par cpu
+
+    // effects parameters
+    uint8_t _mosaic_mode = 0;
 
     friend PixL_Texture *CreateTexture(const char *path);
     friend PixL_Texture *CreateTexture(std::vector<uint8_t> &data, int width, int height, PixelDataFormat format);
