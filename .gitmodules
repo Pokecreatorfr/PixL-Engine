@@ -1,0 +1,3 @@
+[submodule "libs/PixL-Rendering-Engine"]
+	path = libs/PixL-Rendering-Engine
+	url = https://github.com/MatheoVignaud/PixL-Rendering-Engine.git
