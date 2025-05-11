@@ -15,7 +15,6 @@ layout (location = 0) in vec2 TexCoord;
 const uint  TILE_FLAG_NONE = 0;
 const uint  TILE_FLAG_FLIP_X = 1 << 0;
 const uint  TILE_FLAG_FLIP_Y = 1 << 1;
-const uint  TILE_FLAG_FLIP_XY = TILE_FLAG_FLIP_X | TILE_FLAG_FLIP_Y;
 
 void main()
 {

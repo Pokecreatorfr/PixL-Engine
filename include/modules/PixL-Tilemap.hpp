@@ -15,6 +15,12 @@ struct TilesetData
     uint16_t numTilesY = 0;
 };
 
+struct alignas(16) TilesetDataUniform
+{
+    uint32_t numTilesX;
+    uint32_t numTilesY;
+};
+
 enum TileFlags
 {
     TILE_FLAG_NONE = 0,

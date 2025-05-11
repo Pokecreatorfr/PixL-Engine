@@ -33,6 +33,8 @@ PixL_Tilemap::PixL_Tilemap(TilemapData tilemapData)
         std::cout << "PixL Tilemap module loaded." << std::endl;
 
         // initialize ressources for the module here
+        PixL_CreatePipeline("Tilemap", &tilemap_vertex, &tilemap_fragment, false,
+                            SDL_GPU_COMPAREOP_LESS, false, false);
     }
 
     if (tilemapIDs.empty())
