@@ -3,6 +3,7 @@
 #include <PixL-Input-Handler.hpp>
 #include <PixL_2D.hpp>
 #include <PixL_Renderer.hpp>
+#include <modules/PixL-Tilemap.hpp>
 
 class PixL_Input_Handler;
 
@@ -37,6 +38,7 @@ private:
     bool initialized;
     PixL_Input_Handler *inputHandler;
     bool quitRequested = false;
+    PixL_Tilemap *tilemap;
 
     // Add any other member variables or functions as needed
 };

@@ -12,6 +12,30 @@ PixL_Engine::PixL_Engine()
     PixL_Callback_WindowResized();
     PixL_2D_Init();
     PixL_Input_Handler::getInstance();
+
+    TilemapData tilemapData;
+    tilemapData.tileset.TextureName = "tileset1.png";
+    tilemapData.tileset.numTilesX = 36;
+    tilemapData.tileset.numTilesY = 14;
+    tilemapData.numTilesX = 3;
+    tilemapData.numTilesY = 2;
+    tilemapData.tileIDs.resize(tilemapData.numTilesX * tilemapData.numTilesY);
+    tilemapData.tileIDs[0].tileID = 37;
+    tilemapData.tileIDs[0].flags = TILE_FLAG_NONE;
+    tilemapData.tileIDs[1].tileID = 38;
+    tilemapData.tileIDs[1].flags = TILE_FLAG_NONE;
+    tilemapData.tileIDs[2].tileID = 39;
+    tilemapData.tileIDs[2].flags = TILE_FLAG_NONE;
+    tilemapData.tileIDs[3].tileID = 73;
+    tilemapData.tileIDs[3].flags = TILE_FLAG_NONE;
+    tilemapData.tileIDs[4].tileID = 74;
+    tilemapData.tileIDs[4].flags = TILE_FLAG_NONE;
+    tilemapData.tileIDs[5].tileID = 75;
+    tilemapData.tileIDs[5].flags = TILE_FLAG_NONE;
+
+    PixL_CreateTexture("tileset1.png", "tileset1.png");
+
+    this->tilemap = new PixL_Tilemap(tilemapData);
 }
 
 PixL_Engine::~PixL_Engine()
@@ -51,6 +75,8 @@ void PixL_Engine::run()
             keys.insert(event.key.key);
         }
     }
+
+    tilemap->renderTilemap(0, 0, {{0, 0}, {1, 1}});
 
     PixL_StartDraw();
     PixL_2D_Render();

@@ -1,13 +1,35 @@
 #version 450
 
-
-layout (location = 0) in vec2 Vertex;
-layout (location = 1) in vec2 TextureCoord;
 layout (location = 0) out vec2 TexCoord;
 
+layout (set = 1, binding = 0) uniform TilemapPos
+{
+    vec2 position;
+    vec2 size;
+} tilemapPos;
+
+const vec2 Vertex[6] = vec2[6](
+    vec2(-1.0, -1.0),
+    vec2( 1.0, -1.0),
+    vec2(-1.0,  1.0),
+    vec2( 1.0,  1.0),
+    vec2(-1.0,  1.0),
+    vec2( 1.0, -1.0)
+);
+
+const vec2 TextureCoord[6] = vec2[6](
+    vec2(0.0, 1.0),
+    vec2(1.0, 1.0),
+    vec2(0.0, 0.0),
+    vec2(1.0, 0.0),
+    vec2(0.0, 0.0),
+    vec2(1.0, 1.0)
+);
 
 void main()
 {
-    gl_Position = vec4(Vertex, 0.0, 1.0);
-    TexCoord = TextureCoord;
+    vec2 vert = (tilemapPos.position -1) + (tilemapPos.size * Vertex[gl_VertexIndex]);
+
+    gl_Position = vec4(Vertex[gl_VertexIndex], 0.0, 1.0);
+    TexCoord = TextureCoord[gl_VertexIndex];
 }

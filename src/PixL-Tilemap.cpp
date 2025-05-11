@@ -35,6 +35,12 @@ PixL_Tilemap::PixL_Tilemap(TilemapData tilemapData)
         // initialize ressources for the module here
         PixL_CreatePipeline("Tilemap", &tilemap_vertex, &tilemap_fragment, false,
                             SDL_GPU_COMPAREOP_LESS, false, false);
+
+        PixL_CreateUBO("TilemapDataUBO", sizeof(TilesetDataUniform));
+        PixL_CreateUBO("TilemapPosUBO", sizeof(TilemapPos));
+
+        // For Test only
+        PixL_CreateTexture("tilemap_test", "tileset1.png");
     }
 
     if (tilemapIDs.empty())
@@ -92,11 +98,32 @@ bool PixL_Tilemap::updateTilemapData(std::vector<TileData> newTileIDs)
     return true;
 }
 
+bool PixL_Tilemap::renderTilemap(uint8_t layer_id, uint16_t z_index, TilemapPos position)
+{
+    RenderingData *renderingData = new RenderingData;
+    renderingData->tilemap_name = TextureName;
+    renderingData->tileset_name = tilemapData.tileset.TextureName;
+    renderingData->tilesetData.numTilesX = tilemapData.tileset.numTilesX;
+    renderingData->tilesetData.numTilesY = tilemapData.tileset.numTilesY;
+    renderingData->tilesetData.mapWidth = tilemapData.numTilesX;
+    renderingData->tilesetData.mapHeight = tilemapData.numTilesY;
+    renderingData->tilemapPos.position = position.position;
+
+    std::cout << "Tilemap position: " << renderingData->tilemapPos.position.x << ", "
+              << renderingData->tilemapPos.position.y << std::endl;
+    std::cout << "Tilemap size: " << position.size.x << ", "
+              << position.size.y << std::endl;
+
+    PixL_2D_AddDrawable(layer_id, z_index, "Tilemap", renderingCallback,
+                        (void *)renderingData);
+    return false;
+}
+
 bool PixL_Tilemap::createTilemapTexture()
 {
     std::string textureName = "tilemap_" + std::to_string(id);
     if (PixL_CreateBlankTexture(textureName, tilemapData.numTilesX, tilemapData.numTilesY,
-                                SDL_GPU_TEXTUREUSAGE_SAMPLER, SDL_GPU_TEXTUREFORMAT_R16G16_UINT))
+                                SDL_GPU_TEXTUREUSAGE_SAMPLER, SDL_GPU_TEXTUREFORMAT_R16G16_UNORM))
     {
         TextureName = textureName;
         return true;
@@ -104,3 +131,11 @@ bool PixL_Tilemap::createTilemapTexture()
     throw std::runtime_error("Failed to create tilemap texture.");
     return false;
 }
+
+void renderingCallback(void *data)
+{
+    RenderingData *renderingData = (RenderingData *)data;
+
+    PixL_Draw("Tilemap", "", "", 1, 6, nullptr, {&renderingData->tilemapPos, sizeof(TilemapPos)}, nullptr, {renderingData->tilemap_name, renderingData->tileset_name}, {&renderingData->tilesetData, sizeof(TilesetDataUniform)}, nullptr);
+    delete renderingData;
+};

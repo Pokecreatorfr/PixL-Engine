@@ -1,58 +1,54 @@
 #version 450
-layout (location = 0)out vec4 outColor;
 
-layout(set = 3 , binding = 0) uniform TilesetData
-{
+layout(location = 0) out vec4 outColor;
+
+layout(set = 3, binding = 0) uniform TilesetData {
     uint numTilesX;
     uint numTilesY;
+    uint mapWidth;
+    uint mapHeight;
 } tilesetData;
 
-layout(set = 2, binding = 0) uniform sampler2D TilemapData;
+layout(set = 2, binding = 0) uniform sampler2D TilemapData; // Tilemap , R = tileID, G = flags
 layout(set = 2, binding = 1) uniform sampler2D Tileset;
-layout (location = 0) in vec2 TexCoord;
 
+layout(location = 0) in vec2 TexCoord;
 
-const uint  TILE_FLAG_NONE = 0;
-const uint  TILE_FLAG_FLIP_X = 1 << 0;
-const uint  TILE_FLAG_FLIP_Y = 1 << 1;
+const uint TILE_FLAG_FLIP_X = 1u << 0;
+const uint TILE_FLAG_FLIP_Y = 1u << 1;
+const float MAX_U16 = 65535.0;
 
 void main()
 {
-    // TilemapData is a 2D texture containing the tilemap data in R16G16 uint format R component is the tile index, G component contains the tile flags
-    
-    // discard if G component is 0
-    vec4 tilemapData = texture(TilemapData, TexCoord);
-    if (tilemapData.r == 0.0)
-    {
-        discard;
-    }
-    uint tileIndex = uint(tilemapData.r);
-    uint tileFlags = uint(tilemapData.g);
+    vec2 mapPos = TexCoord * vec2(tilesetData.mapWidth, tilesetData.mapHeight);
+    ivec2 tileIdx = ivec2(floor(mapPos));
+    vec2  localUV = fract(mapPos);
 
-    // Get the tile index in the tileset
-    uint tileX = tileIndex % tilesetData.numTilesX;
-    uint tileY = tileIndex / tilesetData.numTilesX;
+    uvec4 encoded = uvec4(texelFetch(TilemapData, tileIdx, 0) * MAX_U16 + 0.5);
+    uint tileID    = encoded.r;
+    uint tileFlags = encoded.g;
 
-    // discard if tile index is out of bounds
-    if (tileX >= tilesetData.numTilesX || tileY >= tilesetData.numTilesY)
-    {
-        discard;
+    if (tileID == 0u) {
+        outColor = vec4(0.0);
+        return;
     }
 
-    vec2 tileSize = vec2(1.0 / float(tilesetData.numTilesX), 1.0 / float(tilesetData.numTilesY));
-    vec2 tilePos = vec2(float(tileX) * tileSize.x, float(tileY) * tileSize.y);
+    uint tileX = tileID % tilesetData.numTilesX;
+    uint tileY = tileID / tilesetData.numTilesX;
 
-    // Get the tile color
-    vec4 tileColor = texture(Tileset, tilePos + TexCoord * tileSize);
-    // Apply the tile flags
-    if ((tileFlags & TILE_FLAG_FLIP_X) != 0)
-    {
-        tileColor = texture(Tileset, tilePos + vec2(1.0 - TexCoord.x * tileSize.x, TexCoord.y * tileSize.y));
+    vec2 tileSizeUV = vec2(1.0) / vec2(tilesetData.numTilesX, tilesetData.numTilesY);
+
+    vec2 baseUV = vec2(tileX, tileY) * tileSizeUV;
+
+    if ((tileFlags & TILE_FLAG_FLIP_X) != 0u) {
+        localUV.x = 1.0 - localUV.x;
     }
-    if ((tileFlags & TILE_FLAG_FLIP_Y) != 0)
-    {
-        tileColor = texture(Tileset, tilePos + vec2(TexCoord.x * tileSize.x, 1.0 - TexCoord.y * tileSize.y));
+    if ((tileFlags & TILE_FLAG_FLIP_Y) != 0u) {
+        localUV.y = 1.0 - localUV.y;
     }
 
-    outColor = tileColor;
+    vec2 finalUV = baseUV + localUV * tileSizeUV;
+
+
+    outColor = texture(Tileset, finalUV);
 }
