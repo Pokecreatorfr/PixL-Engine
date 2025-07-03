@@ -109,10 +109,10 @@ bool PixL_Tilemap::renderTilemap(uint8_t layer_id, uint16_t z_index, TilemapPos 
     renderingData->tilesetData.mapHeight = tilemapData.numTilesY;
     renderingData->tilemapPos.position = position.position;
 
-    std::cout << "Tilemap position: " << renderingData->tilemapPos.position.x << ", "
+    /*std::cout << "Tilemap position: " << renderingData->tilemapPos.position.x << ", "
               << renderingData->tilemapPos.position.y << std::endl;
     std::cout << "Tilemap size: " << position.size.x << ", "
-              << position.size.y << std::endl;
+              << position.size.y << std::endl;*/
 
     PixL_2D_AddDrawable(layer_id, z_index, "Tilemap", renderingCallback,
                         (void *)renderingData);

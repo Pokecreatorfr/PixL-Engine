@@ -2,8 +2,9 @@
 
 PixL_Engine::PixL_Engine()
 {
+
     PixL_Renderer_Init(0);
-    window = CreateWindow("PixL Renderer", 800, 600, SDL_WINDOW_RESIZABLE);
+    window = CreateWindow("PixL Renderer", 1000, 1000, SDL_WINDOW_RESIZABLE);
     if (!window)
     {
         SDL_Log("Could not create window: %s", SDL_GetError());
@@ -36,6 +37,28 @@ PixL_Engine::PixL_Engine()
     PixL_CreateTexture("tileset1.png", "tileset1.png");
 
     this->tilemap = new PixL_Tilemap(tilemapData);
+
+    PixL_CreateTexture("sprite.png", "sprite.png");
+
+    SpritesheetData spritesheetData;
+    spritesheetData.TextureName = "sprite.png";
+    spritesheetData.numSpritesX = 4;
+    spritesheetData.numSpritesY = 4;
+    this->sprite = new PixL_Sprite(spritesheetData);
+
+    this->sprite->newSprite(
+        {
+            {0.0f, 0.0f},
+            {0.5f, 0.5f},
+            SPRITE_FLAG_NONE,
+            0,
+            rot,
+            255,
+            255,
+            255,
+            255,
+        },
+        1, 0);
 }
 
 PixL_Engine::~PixL_Engine()
@@ -56,6 +79,7 @@ void PixL_Engine::quit()
 
 void PixL_Engine::run()
 {
+    rot += 1;
     SDL_Event event;
     std::set<SDL_Keycode> keys;
     while (SDL_PollEvent(&event))
@@ -76,7 +100,20 @@ void PixL_Engine::run()
         }
     }
 
+    sprite->updateSpriteData(0, {
+                                    {0.0f, 0.0f},
+                                    {0.5f, 0.5f},
+                                    SPRITE_FLAG_NONE,
+                                    0,
+                                    rot,
+                                    255,
+                                    255,
+                                    255,
+                                    255,
+                                });
+
     tilemap->renderTilemap(0, 0, {{0, 0}, {1, 1}});
+    sprite->renderSprites();
 
     PixL_StartDraw();
     PixL_2D_Render();

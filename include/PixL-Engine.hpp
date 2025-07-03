@@ -3,6 +3,7 @@
 #include <PixL-Input-Handler.hpp>
 #include <PixL_2D.hpp>
 #include <PixL_Renderer.hpp>
+#include <modules/PixL-Sprite.hpp>
 #include <modules/PixL-Tilemap.hpp>
 
 class PixL_Input_Handler;
@@ -39,6 +40,9 @@ private:
     PixL_Input_Handler *inputHandler;
     bool quitRequested = false;
     PixL_Tilemap *tilemap;
+    PixL_Sprite *sprite;
+
+    float rot = 0.0f; // Rotation angle for sprite rendering
 
     // Add any other member variables or functions as needed
 };
