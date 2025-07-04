@@ -3,10 +3,13 @@ add_rules("mode.debug", "mode.release")
 set_languages("c++23")
 set_optimize("none")
 
-add_requires("libsdl3")
+if(is_host("linux")) then
+    add_requires("libsdl3", { system = true })
+else
+    add_requires("libsdl3", { system = false })
+end
 add_requires("libsdl3_image")
 add_requires("glm")
-add_requires("assimp")
 
 
 target("shaders")
@@ -35,7 +38,7 @@ target("PixL-Engine")
     add_files("libs/PixL-Rendering-Engine/src/**.cpp")
     add_includedirs("include")
     add_files("src/**.cpp")
-    add_packages("libsdl3", "libsdl3_image", "glm" , "assimp")
+    add_packages("libsdl3", "libsdl3_image", "glm" )
 
     -- Assurer que les shaders sont compilés avant l'application
     add_deps("shaders")

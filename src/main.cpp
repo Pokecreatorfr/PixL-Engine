@@ -3,6 +3,7 @@
 
 int main(int argc, char *argv[])
 {
+
     PixL_Engine *engine = PixL_Engine::getInstance();
 
     while (!engine->IsQuitRequested())
