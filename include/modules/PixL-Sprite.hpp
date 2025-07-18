@@ -57,6 +57,16 @@ struct SpriteData
     uint16_t z_index = 0; // Priority for rendering order
 };
 
+struct SpriteBatchVertexUBO
+{
+    std::vector<spriteVertexUBO> vertexData;
+};
+
+struct SpriteBatchFragmentUBO
+{
+    std::vector<spriteFragmentUBO> fragmentData;
+};
+
 struct BatchedSpriteData
 {
     std::vector<SpriteUBO> spriteUBO = {};
@@ -69,6 +79,14 @@ struct SpriteRenderingData
     spriteVertexUBO vertexUBO = {};
     spriteFragmentUBO fragmentUBO = {};
     std::string textureName = ""; // Name of the texture used for the sprite
+};
+
+struct BatchedSpriteRenderingData
+{
+    std::vector<spriteVertexUBO> vertexUBO = {};
+    std::vector<spriteFragmentUBO> fragmentUBO = {};
+    uint16_t numSprites = 0;      // Number of sprites in the batch
+    std::string textureName = ""; // Name of the texture used for the batched sprite
 };
 
 class PixL_Sprite
@@ -105,3 +123,4 @@ protected:
 };
 
 void spriteRenderingCallback(void *data);
+void spriteBatchRenderingCallback(void *data);

@@ -1,4 +1,5 @@
 #include <PixL-Engine.hpp>
+#include <SDL3/SDL_vulkan.h>
 #include <chrono>
 
 int main(int argc, char *argv[])

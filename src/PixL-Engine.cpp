@@ -10,6 +10,7 @@ PixL_Engine::PixL_Engine()
         SDL_Log("Could not create window: %s", SDL_GetError());
         return;
     }
+
     PixL_Callback_WindowResized();
     PixL_2D_Init();
     PixL_Input_Handler::getInstance();
@@ -59,6 +60,24 @@ PixL_Engine::PixL_Engine()
             255,
         },
         1, 0);
+
+    std::vector<SpriteUBO> batchedSprites;
+    for (int i = 0; i < 5; ++i)
+    {
+        batchedSprites.push_back({
+            {static_cast<float>(i) * 0.1f - 0.5, 0.0f},
+            {0.1f, (i * 0.1f)},
+            SPRITE_FLAG_NONE,
+            0,
+            rot,
+            255,
+            255,
+            255,
+            255,
+        });
+    }
+
+    this->sprite->newBatchedSprite(batchedSprites, 1, 1);
 }
 
 PixL_Engine::~PixL_Engine()
