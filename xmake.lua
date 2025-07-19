@@ -2,6 +2,8 @@ add_rules("mode.debug", "mode.release")
 
 set_languages("c++23")
 set_optimize("fastest")
+set_defaultmode("debug")
+
 
 if(is_host("linux")) then
     add_requires("libsdl3", { system = true })
