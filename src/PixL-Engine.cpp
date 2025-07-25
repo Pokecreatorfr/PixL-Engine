@@ -63,31 +63,24 @@ PixL_Engine::PixL_Engine()
 
     std::vector<SpriteUBO> batchedSprites;
 
-    batchedSprites.push_back({
-        {0.0f, 0.0f},
-        {0.5f, 0.5f},
-        SPRITE_FLAG_NONE,
-        0,
-        rot,
-        255,
-        255,
-        255,
-        255,
-    });
-
-    batchedSprites.push_back({
-        {0.2f, 0.2f},
-        {0.5f, 0.5f},
-        SPRITE_FLAG_NONE,
-        1,
-        rot,
-        255,
-        255,
-        255,
-        255,
-    });
+    for (int i = 0; i < 440; ++i)
+    {
+        batchedSprites.push_back({
+            {static_cast<float>(i % 20) * 0.05f, static_cast<float>(i / 20) * 0.05f},
+            {0.05f, 0.05f},
+            SPRITE_FLAG_NONE,
+            static_cast<uint16_t>(i % 16), // Assuming sprite IDs are in range [0, 15]
+            rot + i * 2.0f,                // Incremental rotation
+            255,
+            255,
+            255,
+            255,
+        });
+    }
 
     this->sprite->newBatchedSprite(batchedSprites, 1, 1);
+
+    PixL_Imgui::getInstance();
 }
 
 PixL_Engine::~PixL_Engine()

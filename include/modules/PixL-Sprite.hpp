@@ -34,7 +34,7 @@ struct alignas(16) SpriteUBO
     uint8_t b = 255;           // Blue component of color
 };
 
-alignas(16) struct spriteVertexUBO
+struct spriteVertexUBO
 {
     alignas(8) glm::vec2 position = {0.0f, 0.0f};
     alignas(8) glm::vec2 size = {1.0f, 1.0f};
@@ -45,7 +45,7 @@ alignas(16) struct spriteVertexUBO
     alignas(4) float _pad2; // offset 28
 };
 
-alignas(16) struct spriteFragmentUBO
+struct spriteFragmentUBO
 {
     alignas(4) uint32_t numTilesX = 0; // Number of tiles in the X direction
     alignas(4) uint32_t numTilesY = 0; // Number of tiles in the Y direction

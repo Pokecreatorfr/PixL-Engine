@@ -3,6 +3,7 @@
 #include <PixL-Input-Handler.hpp>
 #include <PixL_2D.hpp>
 #include <PixL_Renderer.hpp>
+#include <modules/PixL-Imgui.hpp>
 #include <modules/PixL-Sprite.hpp>
 #include <modules/PixL-Tilemap.hpp>
 

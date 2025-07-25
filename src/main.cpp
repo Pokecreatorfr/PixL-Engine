@@ -1,6 +1,7 @@
 #include <PixL-Engine.hpp>
 #include <SDL3/SDL_vulkan.h>
 #include <chrono>
+#include <modules/PixL-Imgui.hpp>
 
 int main(int argc, char *argv[])
 {
@@ -10,6 +11,5 @@ int main(int argc, char *argv[])
     {
         engine->run();
     }
-
     return 0;
 }
