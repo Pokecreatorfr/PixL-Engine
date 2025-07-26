@@ -8,23 +8,17 @@ PixL_Imgui::PixL_Imgui()
         std::cout << "PixL Imgui module loaded." << std::endl;
     }
 
-    std::cout << "0" << std::endl;
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
 
-    io = ImGui::GetIO();
-    std::cout << "1" << std::endl;
-
-    (void)io;
-    std::cout << "2" << std::endl;
-
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
-    std::cout << "3" << std::endl;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;   // Enable Keyboard Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;    // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_DpiEnableScaleFonts; // Enable DPI scaling for fonts
 
     ImGui::StyleColorsDark();
     float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+    ImGuiStyle &style = ImGui::GetStyle();
     style.ScaleAllSizes(main_scale); // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
-    style.FontScaleDpi = main_scale; // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
-
     window = GetWindow();
     gpu_device = PixL_GetDevice();
 
@@ -59,4 +53,16 @@ void PixL_Imgui_Update_Callbacks()
             cb.func(cb.user_data);
         }
     }
+
+    ImGui::Render();
+    ImDrawData *draw_data = ImGui::GetDrawData();
+    const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+
+    SDL_Window *window = GetWindow();
+
+    ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, PixL_GetCommandBuffer());
+
+    PixL_StartRenderPass("", "", false);
+    ImGui_ImplSDLGPU3_RenderDrawData(draw_data, PixL_GetCommandBuffer(), PixL_GetRenderPass());
+    PixL_EndRenderPass();
 }

@@ -81,6 +81,8 @@ PixL_Engine::PixL_Engine()
     this->sprite->newBatchedSprite(batchedSprites, 1, 1);
 
     PixL_Imgui::getInstance();
+
+    PixL_Imgui::getInstance().addCallback(&Imgui_debug_menu, nullptr);
 }
 
 PixL_Engine::~PixL_Engine()
@@ -106,6 +108,7 @@ void PixL_Engine::run()
     std::set<SDL_Keycode> keys;
     while (SDL_PollEvent(&event))
     {
+        PixL_Imgui_ProcessEvents(&event);
         if (event.type == SDL_EVENT_QUIT)
         {
             this->quitRequested = true;
@@ -139,6 +142,7 @@ void PixL_Engine::run()
 
     PixL_StartDraw();
     PixL_2D_Render();
+    PixL_Imgui_Update_Callbacks();
     PixL_SwapBuffers();
 }
 

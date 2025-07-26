@@ -55,10 +55,16 @@ public:
         return id;
     }
 
-private:
-    ImGuiIO &io = ImGui::GetIO();
-    ImGuiStyle &style = ImGui::GetStyle();
+    void removeCallback(uint16_t id)
+    {
+        auto it = callbacks.find(id);
+        if (it != callbacks.end())
+        {
+            callbacks.erase(it);
+        }
+    }
 
+private:
     SDL_GPUDevice *gpu_device;
     SDL_Window *window;
 
@@ -68,3 +74,4 @@ private:
 };
 
 void PixL_Imgui_Update_Callbacks();
+#define PixL_Imgui_ProcessEvents(e_ptr) (ImGui_ImplSDL3_ProcessEvent((e_ptr)))
