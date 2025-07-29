@@ -13,6 +13,7 @@ end
 add_requires("libsdl3_image")
 add_requires("glm")
 add_requires("imgui" , { version = "v1.92.0-docking" ,configs = { sdl3_gpu = true , sdl3 = true} })
+add_requires("openmp")
 
 
 target("shaders")
@@ -37,6 +38,11 @@ target("shaders")
 
 target("PixL-Engine")
     set_kind("binary")
+
+    add_cflags("-fopenmp", {force = true})
+    add_cxxflags("-fopenmp", {force = true})
+    add_ldflags("-fopenmp", {force = true})
+
     on_load(function (target)
         if is_plat("linux") and is_arch("x86_64") then
             -- active le code optimisé pour Zen2 (Ryzen 4000) et SIMD

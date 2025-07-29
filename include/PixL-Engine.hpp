@@ -1,10 +1,12 @@
 #pragma once
 
 #include <Imgui_Layouts/Imgui_debug_menu.hpp>
+#include <Particles/Fire.hpp>
 #include <PixL-Input-Handler.hpp>
 #include <PixL_2D.hpp>
 #include <PixL_Renderer.hpp>
 #include <modules/PixL-Imgui.hpp>
+#include <modules/PixL-Particle.hpp>
 #include <modules/PixL-Sprite.hpp>
 #include <modules/PixL-Tilemap.hpp>
 
@@ -43,6 +45,7 @@ private:
     bool quitRequested = false;
     PixL_Tilemap *tilemap;
     PixL_Sprite *sprite;
+    PixL_Particle *particleSystem;
 
     float rot = 0.0f; // Rotation angle for sprite rendering
 

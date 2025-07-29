@@ -100,9 +100,24 @@ def parse_shader(shader_path):
     shader_struct = ShaderStruct(shader_path, shader_stage)
 
     location_pattern = re.compile(r"layout\s*\(\s*location\s*=\s*(\d+)\s*\)\s*in\s+(\w+)\s+(\w+);")
+    
+    # Uniform buffers patterns
     ubo_pattern_vertex = re.compile(r"layout\s*\([^)]*set\s*=\s*1[^)]*\)\s*uniform")
     ubo_pattern_fragment = re.compile(r"layout\s*\([^)]*set\s*=\s*3[^)]*\)\s*uniform")
-    ssbo_pattern = re.compile(r"layout\s*\(\s*std430\s*,\s*binding\s*=\s*\d+\s*\)\s*buffer")
+    
+    # Storage buffers patterns (set 0 pour vertex, set 2 pour fragment)
+    ssbo_vertex_pattern = re.compile(r"layout\s*\([^)]*set\s*=\s*0[^)]*\)\s*buffer")
+    ssbo_fragment_pattern = re.compile(r"layout\s*\([^)]*set\s*=\s*2[^)]*\)\s*buffer")
+    
+    # Sampled textures patterns (set 0 pour vertex, set 2 pour fragment)
+    sampler_vertex_pattern = re.compile(r"layout\s*\([^)]*set\s*=\s*0[^)]*\)\s*uniform\s+sampler2D")
+    sampler_fragment_pattern = re.compile(r"layout\s*\([^)]*set\s*=\s*2[^)]*\)\s*uniform\s+sampler2D")
+    
+    # Storage textures patterns (set 0 pour vertex, set 2 pour fragment)
+    storage_texture_vertex_pattern = re.compile(r"layout\s*\([^)]*set\s*=\s*0[^)]*\)\s*uniform\s+image2D")
+    storage_texture_fragment_pattern = re.compile(r"layout\s*\([^)]*set\s*=\s*2[^)]*\)\s*uniform\s+image2D")
+    
+    # Fallback patterns pour les anciens shaders sans set spécifié
     sampler_pattern = re.compile(r"uniform\s+sampler2D")
     image_pattern = re.compile(r"layout\s*\(\s*binding\s*=\s*\d+\s*\)\s*uniform\s+image2D")
 
@@ -122,14 +137,30 @@ def parse_shader(shader_path):
                 shader_struct.vertexAttributes.append(attr)
                 current_offset += attr_size
 
-        # UBO, SSBO, Sampler, Image2D
+        # UBO patterns
         if ubo_pattern_vertex.search(line) or ubo_pattern_fragment.search(line):
             shader_struct.uniform_Buffer_Count += 1
-        if ssbo_pattern.search(line):
+        
+        # SSBO patterns (storage buffers)
+        if shader_path.endswith(".vert") and ssbo_vertex_pattern.search(line):
             shader_struct.storage_Buffer_Count += 1
-        if sampler_pattern.search(line):
+        elif shader_path.endswith(".frag") and ssbo_fragment_pattern.search(line):
+            shader_struct.storage_Buffer_Count += 1
+        
+        # Sampler patterns (sampled textures)
+        if shader_path.endswith(".vert") and sampler_vertex_pattern.search(line):
             shader_struct.sampler_Count += 1
-        if image_pattern.search(line):
+        elif shader_path.endswith(".frag") and sampler_fragment_pattern.search(line):
+            shader_struct.sampler_Count += 1
+        elif sampler_pattern.search(line):  # Fallback pour les anciens shaders
+            shader_struct.sampler_Count += 1
+        
+        # Storage texture patterns
+        if shader_path.endswith(".vert") and storage_texture_vertex_pattern.search(line):
+            shader_struct.storage_Texture_Count += 1
+        elif shader_path.endswith(".frag") and storage_texture_fragment_pattern.search(line):
+            shader_struct.storage_Texture_Count += 1
+        elif image_pattern.search(line):  # Fallback pour les anciens shaders
             shader_struct.storage_Texture_Count += 1
 
     # Regrouper les attributs en un seul buffer de vertex

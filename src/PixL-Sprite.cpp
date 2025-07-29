@@ -140,7 +140,7 @@ void spriteRenderingCallback(void *data)
     {
         PixL_Draw("Sprite", "", "", 1, 6, nullptr,
                   {&spriteRenderingData->vertexUBO, sizeof(spriteVertexUBO)},
-                  nullptr,
+                  {},
                   {spriteRenderingData->textureName},
                   {&spriteRenderingData->fragmentUBO, sizeof(spriteFragmentUBO)},
                   nullptr);
@@ -215,7 +215,7 @@ void spriteBatchRenderingCallback(void *data)
     {
         PixL_Draw("SpriteBatch", "", "", batchedSpriteRenderingData->numSprites, 6, nullptr,
                   {batchedSpriteRenderingData->vertexUBO.data(), sizeof(spriteVertexUBO) * batchedSpriteRenderingData->numSprites},
-                  nullptr,
+                  {},
                   {batchedSpriteRenderingData->textureName},
                   {batchedSpriteRenderingData->fragmentUBO.data(), sizeof(spriteFragmentUBO) * batchedSpriteRenderingData->numSprites},
                   nullptr);

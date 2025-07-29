@@ -136,6 +136,6 @@ void renderingCallback(void *data)
 {
     RenderingData *renderingData = (RenderingData *)data;
 
-    PixL_Draw("Tilemap", "", "", 1, 6, nullptr, {&renderingData->tilemapPos, sizeof(TilemapPos)}, nullptr, {renderingData->tilemap_name, renderingData->tileset_name}, {&renderingData->tilesetData, sizeof(TilesetDataUniform)}, nullptr);
+    PixL_Draw("Tilemap", "", "", 1, 6, nullptr, {&renderingData->tilemapPos, sizeof(TilemapPos)}, {}, {renderingData->tilemap_name, renderingData->tileset_name}, {&renderingData->tilesetData, sizeof(TilesetDataUniform)}, nullptr);
     delete renderingData;
 };

@@ -3,6 +3,7 @@
 #include <PixL_Renderer.hpp>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
+#include <modules/PixL-Particle.hpp>
 
 static bool show_debug_menu = true;
 static bool ctrl_d_down = false;
@@ -36,6 +37,9 @@ inline void Imgui_debug_menu(void *user_data)
         // Display the window size
         glm::vec2 windowSize = PixL_GetWindowSize();
         ImGui::Text("Window Size: %.0f x %.0f", windowSize.x, windowSize.y);
+
+        // Display the number of particles
+        ImGui::Text("Particles: %d", PixL_Particle::GetParticlesNumber());
 
         ImGui::End();
     }

@@ -83,6 +83,17 @@ PixL_Engine::PixL_Engine()
     PixL_Imgui::getInstance();
 
     PixL_Imgui::getInstance().addCallback(&Imgui_debug_menu, nullptr);
+
+    ParticleData particleData = {
+        &Fire_Particle_Init,
+        &Fire_Particle_Update,
+        &Fire_Particle_Draw,
+        std::make_shared<FireParticleSystemData>(FireParticleSystemData{
+            {0.0f, -0.97f},                    // Emitter position
+            std::vector<FireParticleData>{}}), // Initial particles
+    };
+
+    particleSystem = PixL_Particle::getInstance(particleData);
 }
 
 PixL_Engine::~PixL_Engine()
@@ -124,6 +135,9 @@ void PixL_Engine::run()
             keys.insert(event.key.key);
         }
     }
+
+    particleSystem->update();
+    particleSystem->draw();
 
     sprite->updateSpriteData(0, {
                                     {0.0f, 0.0f},
