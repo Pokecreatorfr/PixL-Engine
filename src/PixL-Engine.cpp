@@ -89,7 +89,7 @@ PixL_Engine::PixL_Engine()
         &Fire_Particle_Update,
         &Fire_Particle_Draw,
         std::make_shared<FireParticleSystemData>(FireParticleSystemData{
-            {0.0f, -0.97f},                    // Emitter position
+            {-0.5f, -0.97f},                   // Emitter position
             std::vector<FireParticleData>{}}), // Initial particles
     };
 

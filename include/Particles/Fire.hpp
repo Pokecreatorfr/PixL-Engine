@@ -10,9 +10,9 @@
 
 struct FireParticleData
 {
-    glm::vec2 position;   // Position of the fire particle
-    uint32_t step;        // Step count for the particle
-    uint32_t padding = 0; // Padding to align the structure size to 16 bytes
+    glm::vec2 position; // Position of the fire particle
+    uint32_t step;      // Step count for the particle
+    float rotation;     // Rotation of the particle
 };
 
 struct FireParticleSystemData

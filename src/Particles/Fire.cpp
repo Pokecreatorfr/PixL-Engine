@@ -22,11 +22,12 @@ void Fire_Particle_Update(void *user_data)
     auto *data = static_cast<FireParticleSystemData *>(user_data);
 
     // Ajouter 5 particules par frame
-    for (int i = 0; i < 40; ++i)
+    for (int i = 0; i < 15; ++i)
     {
         FireParticleData new_particle;
         new_particle.position = data->emiter_position;
         new_particle.step = 0;
+        new_particle.rotation = 0.0f;
         data->particles.push_back(new_particle);
     }
 
@@ -40,7 +41,8 @@ void Fire_Particle_Update(void *user_data)
         thread_local std::mt19937 rng(std::random_device{}());
         std::uniform_real_distribution<float> drift50(-0.005f, 0.005f);
         std::uniform_real_distribution<float> drift250(-0.0015f, 0.0015f);
-        std::uniform_real_distribution<float> drift550(-0.0025f, 0.0025f);
+        std::uniform_real_distribution<float> drift550(-0.005f, 0.005f);
+        std::uniform_real_distribution<float> rotation(-0.0f, 5.0f);
 
         if (particle.step < 50)
         {
@@ -52,11 +54,12 @@ void Fire_Particle_Update(void *user_data)
             particle.position.y += 0.004f;
             particle.position.x += drift250(rng);
         }
-        else if (particle.step < 250)
+        else if (particle.step < 350)
         {
             particle.position.y += 0.003f;
             particle.position.x += drift550(rng);
         }
+        particle.rotation += rotation(rng);
     }
 
     // Supprimer les particules expirées
@@ -64,7 +67,7 @@ void Fire_Particle_Update(void *user_data)
         std::remove_if(data->particles.begin(), data->particles.end(),
                        [](const FireParticleData &p)
                        {
-                           return p.step >= 250;
+                           return p.step >= 350;
                        }),
         data->particles.end());
 
