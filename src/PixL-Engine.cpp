@@ -16,7 +16,7 @@ PixL_Engine::PixL_Engine()
     PixL_Input_Handler::getInstance();
 
     TilemapData tilemapData;
-    tilemapData.tileset.TextureName = "tileset1.png";
+    tilemapData.tileset.TextureName = "tileset1";
     tilemapData.tileset.numTilesX = 36;
     tilemapData.tileset.numTilesY = 14;
     tilemapData.numTilesX = 3;
@@ -35,14 +35,16 @@ PixL_Engine::PixL_Engine()
     tilemapData.tileIDs[5].tileID = 75;
     tilemapData.tileIDs[5].flags = TILE_FLAG_NONE;
 
-    PixL_CreateTexture("tileset1.png", "tileset1.png");
+    PixL_Ressource::getInstance()->loadPak("assets.pak");
+
+    PixL_Ressource::getInstance()->CreateTexture("tileset1", "images/tileset1.bmp");
 
     this->tilemap = new PixL_Tilemap(tilemapData);
 
-    PixL_CreateTexture("sprite.png", "sprite.png");
+    PixL_Ressource::getInstance()->CreateTexture("sprite1", "images/sprite.bmp");
 
     SpritesheetData spritesheetData;
-    spritesheetData.TextureName = "sprite.png";
+    spritesheetData.TextureName = "sprite1";
     spritesheetData.numSpritesX = 4;
     spritesheetData.numSpritesY = 4;
     this->sprite = new PixL_Sprite(spritesheetData);

@@ -1,7 +1,7 @@
 add_rules("mode.debug", "mode.release")
 
-set_languages("c++23")
-set_optimize("fastest")
+set_languages("c++17")
+set_optimize("none")
 set_defaultmode("debug")
 
 
@@ -36,6 +36,59 @@ target("shaders")
         end
     end)
 
+target("Pak")
+    set_kind("phony")
+    after_build(function (target)
+        local shader_dir = "./assets"
+        local compiled_dir = "compiled_shaders"
+
+        -- Créer le dossier de destination si nécessaire
+        os.mkdir(path.join(shader_dir, "shaders"))
+
+        -- Si le dossier n'est pas vide, le vider
+        if os.isdir(path.join(shader_dir, "shaders")) then
+            os.rm(path.join(shader_dir, "shaders", "*"))
+        end
+
+        -- Copier tous les shaders compilés dans le dossier de l'exécutable
+        os.cp(path.join(compiled_dir, "*"), path.join(shader_dir, "shaders"))
+
+        print("Shaders compilés copiés dans : " .. path.join(shader_dir, "shaders"))
+
+        local pak_file = path.join(target:targetdir(), "assets.pak")
+
+
+        os.run("./libs/PixL-Pak/build/linux/x86_64/release/PixL-Paker -p ./assets " .. pak_file)
+    end)
+
+target("convert_images")
+    set_kind("phony")
+    before_build(function ()
+        import("lib.detect.find_tool")
+        local ffmpeg = find_tool("ffmpeg")
+        local convert = find_tool("convert")
+        assert(ffmpeg or convert, "ERROR: neither ffmpeg nor ImageMagick 'convert' found in PATH")
+
+        local files = os.match("./assets/images/**")
+        if #files == 0 then
+            print("No image files found in assets/images directory.")
+        end
+        for _, file in ipairs(files) do
+           print("Processing file: " .. file)
+            if file:lower():match("%.png$") or file:lower():match("%.jpg$") or file:lower():match("%.jpeg$") then
+                local out = file:gsub("%.[^.]+$", ".bmp")
+                if ffmpeg then
+                    os.exec("%s -y -i %s %s", ffmpeg.program, file, out)
+                else
+                    os.exec("%s %s %s", convert.program, file, out)
+                end
+                print(string.format("Converted: %s -> %s", file, out))
+            else 
+                print(string.format("Skipping unsupported file: %s", file))
+            end
+        end
+    end)
+
 target("PixL-Engine")
     set_kind("binary")
 
@@ -53,12 +106,15 @@ target("PixL-Engine")
     end)
     add_includedirs("libs/PixL-Rendering-Engine/include")
     add_files("libs/PixL-Rendering-Engine/src/**.cpp")
+    add_includedirs("libs/PixL-Pak/include")
     add_includedirs("include")
     add_files("src/**.cpp")
     add_packages("libsdl3", "libsdl3_image", "glm" , "imgui")
 
     -- Assurer que les shaders sont compilés avant l'application
     add_deps("shaders")
+    add_deps("Pak")
+    add_deps("convert_images")
 
     -- Copier les shaders compilés dans le dossier de l'exécutable après compilation
     after_build(function (target)
@@ -72,4 +128,27 @@ target("PixL-Engine")
         os.cp(path.join(compiled_dir, "*"), path.join(exec_dir, "shaders"))
 
         print("Shaders compilés copiés dans : " .. path.join(exec_dir, "shaders"))
+    end)
+
+        after_build(function (target)
+        local shader_dir = "./assets"
+        local compiled_dir = "compiled_shaders"
+
+        -- Créer le dossier de destination si nécessaire
+        os.mkdir(path.join(shader_dir, "shaders"))
+
+        -- Si le dossier n'est pas vide, le vider
+        if os.isdir(path.join(shader_dir, "shaders")) then
+            os.rm(path.join(shader_dir, "shaders", "*"))
+        end
+
+        -- Copier tous les shaders compilés dans le dossier de l'exécutable
+        os.cp(path.join(compiled_dir, "*"), path.join(shader_dir, "shaders"))
+
+        print("Shaders compilés copiés dans : " .. path.join(shader_dir, "shaders"))
+
+        local pak_file = path.join(target:targetdir(), "assets.pak")
+
+
+        os.run("./libs/PixL-Pak/build/linux/x86_64/release/PixL-Paker -p ./assets " .. pak_file)
     end)

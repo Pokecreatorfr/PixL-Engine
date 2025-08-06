@@ -19,3 +19,5 @@ build/
 src/generated_shaders.cpp
 include/const/generated_shaders.hpp
 compiled_shaders/
+assets/shaders/
+assets/images/*.bmp
