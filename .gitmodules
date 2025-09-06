@@ -4,3 +4,6 @@
 [submodule "libs/PixL-Pak"]
 	path = libs/PixL-Pak
 	url = https://github.com/MatheoVignaud/PixL-Pak
+[submodule "libs/PixL-Studio"]
+	path = libs/PixL-Studio
+	url = https://github.com/MatheoVignaud/PixL-Studio

@@ -10,6 +10,9 @@
 #include <modules/PixL-Particle.hpp>
 #include <modules/PixL-Sprite.hpp>
 #include <modules/PixL-Tilemap.hpp>
+#ifdef PIXL_STUDIO
+#include <PixL-Studio.hpp>
+#endif
 
 class PixL_Input_Handler;
 
@@ -37,6 +40,8 @@ public:
     {
         return quitRequested;
     }
+
+    bool ToogleFullscreen();
 
 private:
     SDL_Window *window;

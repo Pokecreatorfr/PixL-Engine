@@ -37,65 +37,9 @@ PixL_Engine::PixL_Engine()
 
     PixL_Ressource::getInstance()->loadPak("assets.pak");
 
-    PixL_Ressource::getInstance()->CreateTexture("tileset1", "images/tileset1.bmp");
-
-    this->tilemap = new PixL_Tilemap(tilemapData);
-
-    PixL_Ressource::getInstance()->CreateTexture("sprite1", "images/sprite.bmp");
-
-    SpritesheetData spritesheetData;
-    spritesheetData.TextureName = "sprite1";
-    spritesheetData.numSpritesX = 4;
-    spritesheetData.numSpritesY = 4;
-    this->sprite = new PixL_Sprite(spritesheetData);
-
-    this->sprite->newSprite(
-        {
-            {0.0f, 0.0f},
-            {0.5f, 0.5f},
-            SPRITE_FLAG_NONE,
-            0,
-            rot,
-            255,
-            255,
-            255,
-            255,
-        },
-        1, 0);
-
-    std::vector<SpriteUBO> batchedSprites;
-
-    for (int i = 0; i < 440; ++i)
-    {
-        batchedSprites.push_back({
-            {static_cast<float>(i % 20) * 0.05f, static_cast<float>(i / 20) * 0.05f},
-            {0.05f, 0.05f},
-            SPRITE_FLAG_NONE,
-            static_cast<uint16_t>(i % 16), // Assuming sprite IDs are in range [0, 15]
-            rot + i * 2.0f,                // Incremental rotation
-            255,
-            255,
-            255,
-            255,
-        });
-    }
-
-    this->sprite->newBatchedSprite(batchedSprites, 1, 1);
-
-    PixL_Imgui::getInstance();
-
-    PixL_Imgui::getInstance().addCallback(&Imgui_debug_menu, nullptr);
-
-    ParticleData particleData = {
-        &Fire_Particle_Init,
-        &Fire_Particle_Update,
-        &Fire_Particle_Draw,
-        std::make_shared<FireParticleSystemData>(FireParticleSystemData{
-            {-0.5f, -0.97f},                   // Emitter position
-            std::vector<FireParticleData>{}}), // Initial particles
-    };
-
-    particleSystem = PixL_Particle::getInstance(particleData);
+#ifdef PIXL_STUDIO
+    PixL_Studio::getInstance()->init();
+#endif
 }
 
 PixL_Engine::~PixL_Engine()
@@ -116,7 +60,6 @@ void PixL_Engine::quit()
 
 void PixL_Engine::run()
 {
-    rot += 1;
     SDL_Event event;
     std::set<SDL_Keycode> keys;
     while (SDL_PollEvent(&event))
@@ -138,28 +81,36 @@ void PixL_Engine::run()
         }
     }
 
-    particleSystem->update();
-    particleSystem->draw();
-
-    sprite->updateSpriteData(0, {
-                                    {0.0f, 0.0f},
-                                    {0.5f, 0.5f},
-                                    SPRITE_FLAG_NONE,
-                                    0,
-                                    rot,
-                                    255,
-                                    255,
-                                    255,
-                                    255,
-                                });
-
-    tilemap->renderTilemap(0, 0, {{0, 0}, {1, 1}});
-    sprite->renderSprites();
+#ifdef PIXL_STUDIO
+    PixL_Studio::getInstance()->update();
+#endif
 
     PixL_StartDraw();
     PixL_2D_Render();
     PixL_Imgui_Update_Callbacks();
     PixL_SwapBuffers();
+}
+
+bool PixL_Engine::ToogleFullscreen()
+{
+    Uint32 flags = SDL_GetWindowFlags(window);
+    if (flags & SDL_WINDOW_FULLSCREEN)
+    {
+        if (SDL_SetWindowFullscreen(window, false) != 0)
+        {
+            SDL_Log("Could not switch to windowed mode: %s", SDL_GetError());
+            return false;
+        }
+    }
+    else
+    {
+        if (SDL_SetWindowFullscreen(window, true) != 0)
+        {
+            SDL_Log("Could not switch to fullscreen mode: %s", SDL_GetError());
+            return false;
+        }
+    }
+    return true;
 }
 
 PixL_Engine *PixL_Engine::_instance = nullptr;
