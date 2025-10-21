@@ -38,7 +38,7 @@ struct InputBinding_Keyboard
 struct InputLayout
 {
     std::vector<InputBinding_Keyboard> keyboardBindings;
-    bool validate();
+    bool validate() const;
 };
 
 class PixL_Input_Handler
@@ -61,9 +61,11 @@ public:
         return _instance;
     }
 
-    bool use_layout(InputLayout *layout);
+    static void destroyInstance();
 
-    bool update(std::set<SDL_Keycode> &keys);
+    bool use_layout(const InputLayout &layout);
+
+    bool update(const std::set<SDL_Keycode> &keys);
 
     std::map<uint32_t, std::variant<bool, uint8_t, uint16_t, uint32_t, uint64_t,
                                     int8_t, int16_t, int32_t, int64_t,

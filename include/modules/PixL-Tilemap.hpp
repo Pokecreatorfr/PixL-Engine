@@ -43,7 +43,7 @@ struct TilemapData
     uint16_t numTilesX = 0;
     uint16_t numTilesY = 0;
     std::vector<TileData> tileIDs = {};
-    bool validate();
+    bool validate() const;
 };
 
 struct alignas(16) TilemapPos

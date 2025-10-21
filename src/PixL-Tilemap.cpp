@@ -1,6 +1,7 @@
 #include <modules/PixL-Tilemap.hpp>
+#include <memory>
 
-bool TilemapData::validate()
+bool TilemapData::validate() const
 {
     if (tileset.TextureName.empty())
     {
@@ -27,7 +28,7 @@ bool TilemapData::validate()
 
 PixL_Tilemap::PixL_Tilemap(TilemapData tilemapData)
 {
-    if (!PIXL_LOADED_MODULES & PIXL_MODULE_TILEMAP)
+    if ((PIXL_LOADED_MODULES & PIXL_MODULE_TILEMAP) == 0)
     {
         PIXL_LOADED_MODULES |= PIXL_MODULE_TILEMAP;
         std::cout << "PixL Tilemap module loaded." << std::endl;
@@ -43,14 +44,8 @@ PixL_Tilemap::PixL_Tilemap(TilemapData tilemapData)
         PixL_CreateTexture("tilemap_test", "tileset1.png");
     }
 
-    if (tilemapIDs.empty())
-    {
-        id = 0;
-    }
-    else
-    {
-        id = *tilemapIDs.rbegin() + 1;
-    }
+    id = tilemapIDs.empty() ? 0 : (*tilemapIDs.rbegin() + 1);
+    tilemapIDs.insert(id);
     if (tilemapData.validate())
     {
         this->tilemapData = tilemapData;
@@ -67,7 +62,7 @@ PixL_Tilemap::PixL_Tilemap(TilemapData tilemapData)
     }
 
     if (!PixL_UpdateTexture(TextureName, tilemapData.tileIDs.data(),
-                            tilemapData.numTilesX * tilemapData.numTilesY * sizeof(uint32_t)))
+                            tilemapData.numTilesX * tilemapData.numTilesY * sizeof(TileData)))
     {
         std::cerr << "Failed to update tilemap texture." << std::endl;
         return;
@@ -78,6 +73,7 @@ std::set<uint32_t> PixL_Tilemap::tilemapIDs = {};
 
 PixL_Tilemap::~PixL_Tilemap()
 {
+    tilemapIDs.erase(id);
 }
 
 bool PixL_Tilemap::updateTilemapData(std::vector<TileData> newTileIDs)
@@ -90,7 +86,7 @@ bool PixL_Tilemap::updateTilemapData(std::vector<TileData> newTileIDs)
     tilemapData.tileIDs = newTileIDs;
 
     if (!PixL_UpdateTexture(TextureName, tilemapData.tileIDs.data(),
-                            tilemapData.numTilesX * tilemapData.numTilesY * sizeof(TileData) * 2))
+                            tilemapData.numTilesX * tilemapData.numTilesY * sizeof(TileData)))
     {
         std::cerr << "Failed to update tilemap texture." << std::endl;
         return false;
@@ -100,7 +96,7 @@ bool PixL_Tilemap::updateTilemapData(std::vector<TileData> newTileIDs)
 
 bool PixL_Tilemap::renderTilemap(uint8_t layer_id, uint16_t z_index, TilemapPos position)
 {
-    RenderingData *renderingData = new RenderingData;
+    auto renderingData = std::make_unique<RenderingData>();
     renderingData->tilemap_name = TextureName;
     renderingData->tileset_name = tilemapData.tileset.TextureName;
     renderingData->tilesetData.numTilesX = tilemapData.tileset.numTilesX;
@@ -108,28 +104,24 @@ bool PixL_Tilemap::renderTilemap(uint8_t layer_id, uint16_t z_index, TilemapPos 
     renderingData->tilesetData.mapWidth = tilemapData.numTilesX;
     renderingData->tilesetData.mapHeight = tilemapData.numTilesY;
     renderingData->tilemapPos.position = position.position;
-
-    /*std::cout << "Tilemap position: " << renderingData->tilemapPos.position.x << ", "
-              << renderingData->tilemapPos.position.y << std::endl;
-    std::cout << "Tilemap size: " << position.size.x << ", "
-              << position.size.y << std::endl;*/
+    renderingData->tilemapPos.size = position.size;
 
     PixL_2D_AddDrawable(layer_id, z_index, "Tilemap", renderingCallback,
-                        (void *)renderingData);
-    return false;
+                        static_cast<void *>(renderingData.release()));
+    return true;
 }
 
 bool PixL_Tilemap::createTilemapTexture()
 {
     std::string textureName = "tilemap_" + std::to_string(id);
-    if (PixL_CreateBlankTexture(textureName, tilemapData.numTilesX, tilemapData.numTilesY,
-                                SDL_GPU_TEXTUREUSAGE_SAMPLER, SDL_GPU_TEXTUREFORMAT_R16G16_UNORM))
+    if (!PixL_CreateBlankTexture(textureName, tilemapData.numTilesX, tilemapData.numTilesY,
+                                 SDL_GPU_TEXTUREUSAGE_SAMPLER, SDL_GPU_TEXTUREFORMAT_R16G16_UNORM))
     {
-        TextureName = textureName;
-        return true;
+        std::cerr << "Failed to create tilemap texture." << std::endl;
+        return false;
     }
-    throw std::runtime_error("Failed to create tilemap texture.");
-    return false;
+    TextureName = textureName;
+    return true;
 }
 
 void renderingCallback(void *data)

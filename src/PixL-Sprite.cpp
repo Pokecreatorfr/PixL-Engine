@@ -1,4 +1,5 @@
 #include <modules/PixL-Sprite.hpp>
+#include <memory>
 
 std::set<uint32_t> PixL_Sprite::spriteIDs = {};
 
@@ -25,6 +26,7 @@ PixL_Sprite::PixL_Sprite(SpritesheetData spritesheetData)
 uint32_t PixL_Sprite::newBatchedSprite(std::vector<SpriteUBO> spriteUBO, uint8_t layer_id, uint16_t z_index)
 {
     uint32_t newID = spriteIDs.empty() ? 0 : *spriteIDs.rbegin() + 1;
+    spriteIDs.insert(newID);
     batchedSprites.insert({newID, {spriteUBO, layer_id, z_index}});
     return newID;
 }
@@ -32,8 +34,14 @@ uint32_t PixL_Sprite::newBatchedSprite(std::vector<SpriteUBO> spriteUBO, uint8_t
 uint32_t PixL_Sprite::newSprite(SpriteUBO spriteUBO, uint8_t layer_id, uint16_t z_index)
 {
     uint32_t newID = spriteIDs.empty() ? 0 : *spriteIDs.rbegin() + 1;
+    spriteIDs.insert(newID);
     spriteUBOs.insert({newID, {spriteUBO, layer_id, z_index}});
     return newID;
+}
+
+PixL_Sprite::~PixL_Sprite()
+{
+    deleteAllSprites();
 }
 
 bool PixL_Sprite::updateSpriteData(uint32_t spriteID, SpriteUBO spriteUBO)
@@ -62,32 +70,61 @@ bool PixL_Sprite::updateBatchedSpriteData(uint32_t spriteID, std::vector<SpriteU
 
 bool PixL_Sprite::renderSprites()
 {
+    bool success = true;
     for (const auto &pair : spriteUBOs)
     {
-        drawSprite(pair.first);
+        success &= drawSprite(pair.first);
     }
 
     for (const auto &pair : batchedSprites)
     {
-        drawBatchedSprite(pair.first);
+        success &= drawBatchedSprite(pair.first);
     }
 
-    return true;
+    return success;
 }
 
 bool PixL_Sprite::deleteSprite(uint32_t spriteID)
 {
-    return false;
+    auto it = spriteUBOs.find(spriteID);
+    if (it == spriteUBOs.end())
+    {
+        std::cerr << "Sprite ID " << spriteID << " not found." << std::endl;
+        return false;
+    }
+
+    spriteUBOs.erase(it);
+    spriteIDs.erase(spriteID);
+    return true;
 }
 
 bool PixL_Sprite::deleteBatchedSprite(uint32_t spriteID)
 {
-    return false;
+    auto it = batchedSprites.find(spriteID);
+    if (it == batchedSprites.end())
+    {
+        std::cerr << "Batched Sprite ID " << spriteID << " not found." << std::endl;
+        return false;
+    }
+
+    batchedSprites.erase(it);
+    spriteIDs.erase(spriteID);
+    return true;
 }
 
 bool PixL_Sprite::deleteAllSprites()
 {
-    return false;
+    for (const auto &pair : spriteUBOs)
+    {
+        spriteIDs.erase(pair.first);
+    }
+    for (const auto &pair : batchedSprites)
+    {
+        spriteIDs.erase(pair.first);
+    }
+    spriteUBOs.clear();
+    batchedSprites.clear();
+    return true;
 }
 
 bool PixL_Sprite::drawSprite(uint32_t spriteID)
@@ -107,13 +144,7 @@ bool PixL_Sprite::drawSprite(uint32_t spriteID)
         spriteData.spriteUBO.flags};
 
     // Utilisation d'une allocation normale mais avec vérification d'alignement
-    SpriteRenderingData *spriteRenderingData = new SpriteRenderingData();
-    if (!spriteRenderingData)
-    {
-        std::cerr << "Failed to allocate memory for SpriteRenderingData" << std::endl;
-        return false;
-    }
-
+    auto spriteRenderingData = std::make_unique<SpriteRenderingData>();
     spriteRenderingData->vertexUBO = vertexData;
     spriteRenderingData->fragmentUBO = fragmentData;
     spriteRenderingData->textureName = this->TextureName;
@@ -121,7 +152,7 @@ bool PixL_Sprite::drawSprite(uint32_t spriteID)
     PixL_2D_AddDrawable(
         spriteData.layer_id, spriteData.z_index, "Sprite",
         spriteRenderingCallback,
-        static_cast<void *>(spriteRenderingData));
+        static_cast<void *>(spriteRenderingData.release()));
 
     return true;
 }
@@ -181,13 +212,7 @@ bool PixL_Sprite::drawBatchedSprite(uint32_t spriteID)
         fragmentData.fragmentData.push_back(fragment);
     }
 
-    BatchedSpriteRenderingData *batchedSpriteRenderingData = new BatchedSpriteRenderingData();
-    if (!batchedSpriteRenderingData)
-    {
-        std::cerr << "Failed to allocate memory for BatchedSpriteRenderingData" << std::endl;
-        return false;
-    }
-
+    auto batchedSpriteRenderingData = std::make_unique<BatchedSpriteRenderingData>();
     batchedSpriteRenderingData->vertexUBO = vertexData.vertexData;
     batchedSpriteRenderingData->fragmentUBO = fragmentData.fragmentData;
     batchedSpriteRenderingData->numSprites = static_cast<uint16_t>(batchedSpriteData.spriteUBO.size());
@@ -196,7 +221,7 @@ bool PixL_Sprite::drawBatchedSprite(uint32_t spriteID)
     PixL_2D_AddDrawable(
         batchedSpriteData.layer_id, batchedSpriteData.z_index, "SpriteBatch",
         spriteBatchRenderingCallback,
-        static_cast<void *>(batchedSpriteRenderingData));
+        static_cast<void *>(batchedSpriteRenderingData.release()));
 
     return true;
 }
