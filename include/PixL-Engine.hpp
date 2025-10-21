@@ -10,6 +10,8 @@
 #include <modules/PixL-Particle.hpp>
 #include <modules/PixL-Sprite.hpp>
 #include <modules/PixL-Tilemap.hpp>
+#include <memory>
+#include <set>
 #ifdef PIXL_STUDIO
 #include <PixL-Studio.hpp>
 #endif
@@ -32,6 +34,7 @@ public:
         }
         return _instance;
     }
+    static void destroyInstance();
     void quit();
 
     void run();
@@ -49,9 +52,10 @@ private:
     bool initialized;
     PixL_Input_Handler *inputHandler;
     bool quitRequested = false;
-    PixL_Tilemap *tilemap;
-    PixL_Sprite *sprite;
-    PixL_Particle *particleSystem;
+    std::unique_ptr<PixL_Tilemap> tilemap;
+    std::unique_ptr<PixL_Sprite> sprite;
+    std::unique_ptr<PixL_Particle> particleSystem;
+    std::set<SDL_Keycode> pressedKeys;
 
     float rot = 0.0f; // Rotation angle for sprite rendering
 

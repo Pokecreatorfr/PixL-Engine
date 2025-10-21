@@ -80,45 +80,51 @@ bool PixL_Ressource::CreateTexture(std::string name, std::string imagePath)
         return false;
     }
 
-    std::vector<char> buffer;
     SDL_Surface *surface = nullptr;
 
-    try
+    for (auto it = pakContexts.rbegin(); it != pakContexts.rend() && !surface; ++it)
     {
-        for (int i = pakContexts.size() - 1; i >= 0 || surface == nullptr; --i)
+        PixL_Pak::Context *context = it->second;
+        std::vector<char> buffer;
+
+        try
         {
-            PixL_Pak::Context *context = pakContexts[i].second;
             buffer = context->readFile(imagePath);
-            if (!buffer.empty())
-            {
-                SDL_IOStream *rw = SDL_IOFromConstMem(buffer.data(),
-                                                      static_cast<int>(buffer.size()));
-
-                if (!rw)
-                {
-                    std::cerr << "Failed to create SDL_IOStream from memory: " << SDL_GetError() << std::endl;
-                    break;
-                }
-
-                surface = SDL_LoadBMP_IO(rw, true);
-                if (!surface)
-                {
-                    std::cerr << "Failed to load image from pak: " << imagePath << " - " << SDL_GetError() << std::endl;
-                    SDL_DestroySurface(surface);
-                    surface = nullptr;
-                    throw std::runtime_error("Failed to load image from pak: " + imagePath);
-                }
-            }
         }
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error loading image: " << imagePath << std::endl;
-        SDL_IOStream *rw = SDL_IOFromConstMem(missing_texture, missing_texture_len);
+        catch (const std::exception &e)
+        {
+            std::cerr << "Failed to read \"" << imagePath << "\" from pak: " << e.what() << std::endl;
+            continue;
+        }
+
+        if (buffer.empty())
+        {
+            continue;
+        }
+
+        SDL_IOStream *rw = SDL_IOFromConstMem(buffer.data(), static_cast<int>(buffer.size()));
         if (!rw)
         {
             std::cerr << "Failed to create SDL_IOStream from memory: " << SDL_GetError() << std::endl;
+            continue;
         }
+
+        surface = SDL_LoadBMP_IO(rw, true);
+        if (!surface)
+        {
+            std::cerr << "Failed to load image from pak: " << imagePath << " - " << SDL_GetError() << std::endl;
+        }
+    }
+
+    if (!surface)
+    {
+        SDL_IOStream *rw = SDL_IOFromConstMem(missing_texture, missing_texture_len);
+        if (!rw)
+        {
+            std::cerr << "Failed to create SDL_IOStream from memory for missing texture: " << SDL_GetError() << std::endl;
+            return false;
+        }
+
         surface = SDL_LoadBMP_IO(rw, true);
         if (!surface)
         {
@@ -127,11 +133,7 @@ bool PixL_Ressource::CreateTexture(std::string name, std::string imagePath)
         }
     }
 
-    if (PixL_CreateTexture(name, surface))
-    {
-        SDL_DestroySurface(surface);
-        return true;
-    }
+    bool created = PixL_CreateTexture(name, surface);
     SDL_DestroySurface(surface);
-    return false;
+    return created;
 }

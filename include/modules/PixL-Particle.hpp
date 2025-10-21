@@ -16,14 +16,8 @@ struct ParticleData
 
 class PixL_Particle
 {
-protected:
-    PixL_Particle(ParticleData particleData);
-    ~PixL_Particle();
-    static std::map<uint16_t, PixL_Particle *> _instances;
-    static uint32_t particle_number;
-    uint16_t id;
-
 public:
+    virtual ~PixL_Particle();
     static PixL_Particle *getInstance(uint16_t id)
     {
         if (_instances.find(id) == _instances.end())
@@ -38,23 +32,9 @@ public:
         return new PixL_Particle(particleData);
     }
 
-    static void deleteInstance(uint16_t id)
-    {
-        if (_instances.find(id) != _instances.end())
-        {
-            delete _instances[id];
-            _instances.erase(id);
-        }
-    }
+    static void deleteInstance(uint16_t id);
 
-    static void deleteAllInstances()
-    {
-        for (auto &instance : _instances)
-        {
-            delete instance.second;
-        }
-        _instances.clear();
-    }
+    static void deleteAllInstances();
 
     void update()
     {
@@ -83,6 +63,12 @@ public:
         return particle_number;
     }
 
+protected:
+    explicit PixL_Particle(ParticleData particleData);
+
 private:
+    static std::map<uint16_t, PixL_Particle *> _instances;
+    static uint32_t particle_number;
+    uint16_t id;
     ParticleData particleData;
 };

@@ -1,8 +1,8 @@
 #include <PixL-Engine.hpp>
 
 PixL_Engine::PixL_Engine()
+    : window(nullptr), running(false), initialized(false), inputHandler(nullptr)
 {
-
     PixL_Renderer_Init(0);
     window = CreateWindow("PixL Renderer", 1000, 1000, SDL_WINDOW_RESIZABLE);
     if (!window)
@@ -13,7 +13,7 @@ PixL_Engine::PixL_Engine()
 
     PixL_Callback_WindowResized();
     PixL_2D_Init();
-    PixL_Input_Handler::getInstance();
+    inputHandler = PixL_Input_Handler::getInstance();
 
     TilemapData tilemapData;
     tilemapData.tileset.TextureName = "tileset1";
@@ -37,31 +37,43 @@ PixL_Engine::PixL_Engine()
 
     PixL_Ressource::getInstance()->loadPak("assets.pak");
 
+    tilemap = std::make_unique<PixL_Tilemap>(tilemapData);
+
 #ifdef PIXL_STUDIO
     PixL_Studio::getInstance()->init();
 #endif
+
+    initialized = true;
 }
 
 PixL_Engine::~PixL_Engine()
 {
+    quit();
 }
 
 void PixL_Engine::quit()
 {
-    if (window)
+    if (!initialized)
     {
-        SDL_DestroyWindow(window);
-        window = nullptr;
+        return;
     }
-    PixL_Renderer_Quit();
+
+    initialized = false;
+
+    tilemap.reset();
+    sprite.reset();
+    particleSystem.reset();
+
     PixL_2D_Quit();
-    PixL_Input_Handler::getInstance()->~PixL_Input_Handler();
+    PixL_Renderer_Quit();
+    PixL_Input_Handler::destroyInstance();
+    inputHandler = nullptr;
+    window = nullptr;
 }
 
 void PixL_Engine::run()
 {
     SDL_Event event;
-    std::set<SDL_Keycode> keys;
     while (SDL_PollEvent(&event))
     {
         PixL_Imgui_ProcessEvents(&event);
@@ -77,8 +89,17 @@ void PixL_Engine::run()
 
         if (event.type == SDL_EVENT_KEY_DOWN)
         {
-            keys.insert(event.key.key);
+            pressedKeys.insert(event.key.key);
         }
+        else if (event.type == SDL_EVENT_KEY_UP)
+        {
+            pressedKeys.erase(event.key.key);
+        }
+    }
+
+    if (inputHandler)
+    {
+        inputHandler->update(pressedKeys);
     }
 
 #ifdef PIXL_STUDIO
@@ -114,3 +135,9 @@ bool PixL_Engine::ToogleFullscreen()
 }
 
 PixL_Engine *PixL_Engine::_instance = nullptr;
+
+void PixL_Engine::destroyInstance()
+{
+    delete _instance;
+    _instance = nullptr;
+}

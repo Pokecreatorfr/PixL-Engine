@@ -12,5 +12,6 @@ int main(int argc, char *argv[])
     {
         engine->run();
     }
+    PixL_Engine::destroyInstance();
     return 0;
 }

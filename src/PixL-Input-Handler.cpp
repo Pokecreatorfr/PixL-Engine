@@ -1,6 +1,6 @@
 #include <PixL-Input-Handler.hpp>
 
-bool InputLayout::validate()
+bool InputLayout::validate() const
 {
     for (const auto &binding : keyboardBindings)
     {
@@ -72,24 +72,40 @@ PixL_Input_Handler::PixL_Input_Handler()
 {
 }
 
-PixL_Input_Handler::~PixL_Input_Handler()
-{
-    _instance = nullptr;
-}
+PixL_Input_Handler::~PixL_Input_Handler() = default;
 
 PixL_Input_Handler *PixL_Input_Handler::_instance = nullptr;
 
-bool PixL_Input_Handler::use_layout(InputLayout *layout)
+void PixL_Input_Handler::destroyInstance()
 {
-    return false;
+    delete _instance;
+    _instance = nullptr;
 }
 
-bool PixL_Input_Handler::update(std::set<SDL_Keycode> &keys)
+bool PixL_Input_Handler::use_layout(const InputLayout &layout)
+{
+    if (!layout.validate())
+    {
+        std::cerr << "Invalid input layout provided." << std::endl;
+        return false;
+    }
+
+    currentLayout = layout;
+    inputValues.clear();
+    layoutWarningIssued = false;
+    return true;
+}
+
+bool PixL_Input_Handler::update(const std::set<SDL_Keycode> &keys)
 {
     if (currentLayout.keyboardBindings.empty())
     {
-        std::cerr << "No layout loaded." << std::endl;
-        return false;
+        if (!layoutWarningIssued)
+        {
+            std::cerr << "No layout loaded." << std::endl;
+            layoutWarningIssued = true;
+        }
+        return true;
     }
     for (const auto &binding : currentLayout.keyboardBindings)
     {
@@ -102,47 +118,50 @@ bool PixL_Input_Handler::update(std::set<SDL_Keycode> &keys)
                 break;
             }
         }
-        if (isAllRequiredKeysPressed)
+        if (!isAllRequiredKeysPressed)
         {
-            switch (binding.type)
-            {
-            case InputType::BOOLEAN:
-                inputValues[binding.id] = std::get<bool>(binding.value);
-                break;
-            case InputType::UINT8:
-                inputValues[binding.id] = std::get<uint8_t>(binding.value);
-                break;
-            case InputType::UINT16:
-                inputValues[binding.id] = std::get<uint16_t>(binding.value);
-                break;
-            case InputType::UINT32:
-                inputValues[binding.id] = std::get<uint32_t>(binding.value);
-                break;
-            case InputType::UINT64:
-                inputValues[binding.id] = std::get<uint64_t>(binding.value);
-                break;
-            case InputType::INT8:
-                inputValues[binding.id] = std::get<int8_t>(binding.value);
-                break;
-            case InputType::INT16:
-                inputValues[binding.id] = std::get<int16_t>(binding.value);
-                break;
-            case InputType::INT32:
-                inputValues[binding.id] = std::get<int32_t>(binding.value);
-                break;
-            case InputType::INT64:
-                inputValues[binding.id] = std::get<int64_t>(binding.value);
-                break;
-            case InputType::FLOAT:
-                inputValues[binding.id] = std::get<float>(binding.value);
-                break;
-            case InputType::DOUBLE:
-                inputValues[binding.id] = std::get<double>(binding.value);
-                break;
-            default:
-                std::cerr << "Unknown type for binding id " << binding.id << std::endl;
-                break;
-            }
+            inputValues.erase(binding.id);
+            continue;
+        }
+
+        switch (binding.type)
+        {
+        case InputType::BOOLEAN:
+            inputValues[binding.id] = std::get<bool>(binding.value);
+            break;
+        case InputType::UINT8:
+            inputValues[binding.id] = std::get<uint8_t>(binding.value);
+            break;
+        case InputType::UINT16:
+            inputValues[binding.id] = std::get<uint16_t>(binding.value);
+            break;
+        case InputType::UINT32:
+            inputValues[binding.id] = std::get<uint32_t>(binding.value);
+            break;
+        case InputType::UINT64:
+            inputValues[binding.id] = std::get<uint64_t>(binding.value);
+            break;
+        case InputType::INT8:
+            inputValues[binding.id] = std::get<int8_t>(binding.value);
+            break;
+        case InputType::INT16:
+            inputValues[binding.id] = std::get<int16_t>(binding.value);
+            break;
+        case InputType::INT32:
+            inputValues[binding.id] = std::get<int32_t>(binding.value);
+            break;
+        case InputType::INT64:
+            inputValues[binding.id] = std::get<int64_t>(binding.value);
+            break;
+        case InputType::FLOAT:
+            inputValues[binding.id] = std::get<float>(binding.value);
+            break;
+        case InputType::DOUBLE:
+            inputValues[binding.id] = std::get<double>(binding.value);
+            break;
+        default:
+            std::cerr << "Unknown type for binding id " << binding.id << std::endl;
+            break;
         }
     }
 

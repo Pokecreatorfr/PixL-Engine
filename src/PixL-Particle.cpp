@@ -28,6 +28,37 @@ PixL_Particle::PixL_Particle(ParticleData particleData)
     }
 }
 
+PixL_Particle::~PixL_Particle()
+{
+    auto it = _instances.find(id);
+    if (it != _instances.end() && it->second == this)
+    {
+        _instances.erase(it);
+    }
+}
+
+void PixL_Particle::deleteInstance(uint16_t id)
+{
+    auto it = _instances.find(id);
+    if (it != _instances.end())
+    {
+        PixL_Particle *instance = it->second;
+        _instances.erase(it);
+        delete instance;
+    }
+}
+
+void PixL_Particle::deleteAllInstances()
+{
+    while (!_instances.empty())
+    {
+        auto it = _instances.begin();
+        PixL_Particle *instance = it->second;
+        _instances.erase(it);
+        delete instance;
+    }
+}
+
 std::map<uint16_t, PixL_Particle *> PixL_Particle::_instances = {};
 
 uint32_t PixL_Particle::particle_number = 0;
