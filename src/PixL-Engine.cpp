@@ -1,5 +1,11 @@
 #include <PixL-Engine.hpp>
 
+namespace
+{
+    constexpr int kDefaultWindowWidth = 1000;
+    constexpr int kDefaultWindowHeight = 1000;
+} // namespace
+
 PixL_Engine::PixL_Engine()
     : window(nullptr), running(false), initialized(false), inputHandler(nullptr)
 {
@@ -8,6 +14,8 @@ PixL_Engine::PixL_Engine()
     if (!window)
     {
         SDL_Log("Could not create window: %s", SDL_GetError());
+        PixL_Renderer_Quit();
+        quitRequested = true;
         return;
     }
 
@@ -35,7 +43,9 @@ PixL_Engine::PixL_Engine()
     tilemapData.tileIDs[5].tileID = 75;
     tilemapData.tileIDs[5].flags = TILE_FLAG_NONE;
 
-    PixL_Ressource::getInstance()->loadPak("assets.pak");
+    tilemap = std::make_unique<PixL_Tilemap>(tilemapData);
+
+    tilemap = std::make_unique<PixL_Tilemap>(tilemapData);
 
     tilemap = std::make_unique<PixL_Tilemap>(tilemapData);
 
@@ -49,10 +59,22 @@ PixL_Engine::PixL_Engine()
 PixL_Engine::~PixL_Engine()
 {
     quit();
+    quit();
 }
 
 void PixL_Engine::quit()
 {
+    if (!initialized)
+    {
+        return;
+    }
+
+    initialized = false;
+
+    tilemap.reset();
+    sprite.reset();
+    particleSystem.reset();
+
     if (!initialized)
     {
         return;
@@ -73,16 +95,22 @@ void PixL_Engine::quit()
 
 void PixL_Engine::run()
 {
+    if (!initialized)
+    {
+        return;
+    }
+
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
         PixL_Imgui_ProcessEvents(&event);
-        if (event.type == SDL_EVENT_QUIT)
+
+        switch (event.type)
         {
-            this->quitRequested = true;
-        }
-        else if (event.type == SDL_EVENT_WINDOW_RESIZED)
-        {
+        case SDL_EVENT_QUIT:
+            quitRequested = true;
+            break;
+        case SDL_EVENT_WINDOW_RESIZED:
             PixL_Callback_WindowResized();
             PixL_2D_Callback_WindowResized();
         }
@@ -114,6 +142,12 @@ void PixL_Engine::run()
 
 bool PixL_Engine::ToogleFullscreen()
 {
+    if (!window)
+    {
+        SDL_Log("Cannot toggle fullscreen: window not created.");
+        return false;
+    }
+
     Uint32 flags = SDL_GetWindowFlags(window);
     if (flags & SDL_WINDOW_FULLSCREEN)
     {

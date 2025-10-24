@@ -1,6 +1,6 @@
 #include <PixL-Input-Handler.hpp>
 
-bool InputLayout::validate() const
+bool InputLayout::validate() const const
 {
     for (const auto &binding : keyboardBindings)
     {
@@ -77,98 +77,95 @@ PixL_Input_Handler::~PixL_Input_Handler() = default;
 PixL_Input_Handler *PixL_Input_Handler::_instance = nullptr;
 
 void PixL_Input_Handler::destroyInstance()
+    PixL_Input_Handler::~PixL_Input_Handler() = default;
+
+PixL_Input_Handler *PixL_Input_Handler::_instance = nullptr;
+
+void PixL_Input_Handler::destroyInstance()
 {
+    delete _instance;
     delete _instance;
     _instance = nullptr;
 }
 
-bool PixL_Input_Handler::use_layout(const InputLayout &layout)
+bool PixL_Input_Handler::use_layout(const InputLayout &layout) bool PixL_Input_Handler::use_layout(const InputLayout &layout)
 {
     if (!layout.validate())
     {
         std::cerr << "Invalid input layout provided." << std::endl;
         return false;
     }
-
-    currentLayout = layout;
-    inputValues.clear();
-    layoutWarningIssued = false;
-    return true;
-}
-
-bool PixL_Input_Handler::update(const std::set<SDL_Keycode> &keys)
-{
-    if (currentLayout.keyboardBindings.empty())
+    if (!layout.validate())
     {
-        if (!layoutWarningIssued)
+        std::cerr << "Invalid input layout provided." << std::endl;
+        return false;
+    }
+
+    bool PixL_Input_Handler::update(std::set<SDL_Keycode> & keys)
+    {
+        if (currentLayout.keyboardBindings.empty())
         {
             std::cerr << "No layout loaded." << std::endl;
-            layoutWarningIssued = true;
+            return false;
         }
-        return true;
-    }
-    for (const auto &binding : currentLayout.keyboardBindings)
-    {
-        bool isAllRequiredKeysPressed = true;
-        for (const auto &Key : binding.keys)
+        for (const auto &binding : currentLayout.keyboardBindings)
         {
-            if (keys.find(Key) == keys.end())
+            bool isAllRequiredKeysPressed = true;
+            for (const auto &Key : binding.keys)
             {
-                isAllRequiredKeysPressed = false;
-                break;
+                if (keys.find(Key) == keys.end())
+                {
+                    isAllRequiredKeysPressed = false;
+                    break;
+                }
             }
+            if (!isAllRequiredKeysPressed)
+            {
+                switch (binding.type)
+                {
+                case InputType::BOOLEAN:
+                    inputValues[binding.id] = std::get<bool>(binding.value);
+                    break;
+                case InputType::UINT8:
+                    inputValues[binding.id] = std::get<uint8_t>(binding.value);
+                    break;
+                case InputType::UINT16:
+                    inputValues[binding.id] = std::get<uint16_t>(binding.value);
+                    break;
+                case InputType::UINT32:
+                    inputValues[binding.id] = std::get<uint32_t>(binding.value);
+                    break;
+                case InputType::UINT64:
+                    inputValues[binding.id] = std::get<uint64_t>(binding.value);
+                    break;
+                case InputType::INT8:
+                    inputValues[binding.id] = std::get<int8_t>(binding.value);
+                    break;
+                case InputType::INT16:
+                    inputValues[binding.id] = std::get<int16_t>(binding.value);
+                    break;
+                case InputType::INT32:
+                    inputValues[binding.id] = std::get<int32_t>(binding.value);
+                    break;
+                case InputType::INT64:
+                    inputValues[binding.id] = std::get<int64_t>(binding.value);
+                    break;
+                case InputType::FLOAT:
+                    inputValues[binding.id] = std::get<float>(binding.value);
+                    break;
+                case InputType::DOUBLE:
+                    inputValues[binding.id] = std::get<double>(binding.value);
+                    break;
+                default:
+                    std::cerr << "Unknown type for binding id " << binding.id << std::endl;
+                    break;
+                }
+            }
+
+            return true;
         }
-        if (!isAllRequiredKeysPressed)
+
+        std::map<uint32_t, std::variant<bool, uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t, int64_t, float, double>> PixL_Input_Handler::getInputValues()
         {
-            inputValues.erase(binding.id);
-            continue;
+            return inputValues;
         }
-
-        switch (binding.type)
-        {
-        case InputType::BOOLEAN:
-            inputValues[binding.id] = std::get<bool>(binding.value);
-            break;
-        case InputType::UINT8:
-            inputValues[binding.id] = std::get<uint8_t>(binding.value);
-            break;
-        case InputType::UINT16:
-            inputValues[binding.id] = std::get<uint16_t>(binding.value);
-            break;
-        case InputType::UINT32:
-            inputValues[binding.id] = std::get<uint32_t>(binding.value);
-            break;
-        case InputType::UINT64:
-            inputValues[binding.id] = std::get<uint64_t>(binding.value);
-            break;
-        case InputType::INT8:
-            inputValues[binding.id] = std::get<int8_t>(binding.value);
-            break;
-        case InputType::INT16:
-            inputValues[binding.id] = std::get<int16_t>(binding.value);
-            break;
-        case InputType::INT32:
-            inputValues[binding.id] = std::get<int32_t>(binding.value);
-            break;
-        case InputType::INT64:
-            inputValues[binding.id] = std::get<int64_t>(binding.value);
-            break;
-        case InputType::FLOAT:
-            inputValues[binding.id] = std::get<float>(binding.value);
-            break;
-        case InputType::DOUBLE:
-            inputValues[binding.id] = std::get<double>(binding.value);
-            break;
-        default:
-            std::cerr << "Unknown type for binding id " << binding.id << std::endl;
-            break;
-        }
-    }
-
-    return true;
-}
-
-std::map<uint32_t, std::variant<bool, uint8_t, uint16_t, uint32_t, uint64_t, int8_t, int16_t, int32_t, int64_t, float, double>> PixL_Input_Handler::getInputValues()
-{
-    return inputValues;
-}
