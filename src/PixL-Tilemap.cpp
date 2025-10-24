@@ -1,5 +1,5 @@
-#include <modules/PixL-Tilemap.hpp>
 #include <memory>
+#include <modules/PixL-Tilemap.hpp>
 
 bool TilemapData::validate() const
 {
@@ -39,9 +39,6 @@ PixL_Tilemap::PixL_Tilemap(TilemapData tilemapData)
 
         PixL_CreateUBO("TilemapDataUBO", sizeof(TilesetDataUniform));
         PixL_CreateUBO("TilemapPosUBO", sizeof(TilemapPos));
-
-        // For Test only
-        PixL_CreateTexture("tilemap_test", "tileset1.png");
     }
 
     id = tilemapIDs.empty() ? 0 : (*tilemapIDs.rbegin() + 1);

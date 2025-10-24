@@ -15,6 +15,12 @@ PixL_Ressource::~PixL_Ressource()
 
 PixL_Ressource *PixL_Ressource::_instance = nullptr;
 
+void PixL_Ressource::destroyInstance()
+{
+    delete _instance;
+    _instance = nullptr;
+}
+
 int8_t PixL_Ressource::loadPak(std::string pakFileName)
 {
     PixL_Pak::Context *context = PixL_Pak::Open(pakFileName);

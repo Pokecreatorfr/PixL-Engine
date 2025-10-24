@@ -22,6 +22,8 @@ public:
         return _instance;
     }
 
+    static void destroyInstance();
+
     int8_t loadPak(std::string pakFileName);
     bool unloadPak(int8_t pakID);
 
