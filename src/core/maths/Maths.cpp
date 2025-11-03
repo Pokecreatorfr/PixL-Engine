@@ -1,6 +1,6 @@
-#include <maths/Maths.hpp>
+#include <core/maths/Maths.hpp>
 
-using namespace pixl::maths;
+using namespace pixl::core::maths;
 
 bool Maths::IsInitialized_ = false;
 
@@ -14,7 +14,7 @@ int Maths::Init()
     return 0;
 }
 
-int pixl::maths::Maths::Quit()
+int Maths::Quit()
 {
     if (!IsInitialized_)
     {

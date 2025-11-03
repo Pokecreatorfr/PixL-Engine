@@ -1,3 +1,4 @@
+#include <core/Errors.hpp>
 #include <core/Log.hpp>
 
 using namespace pixl::core;
@@ -28,7 +29,7 @@ void pixl::core::Log::Init(LogLevel logLevel, bool logToConsole, bool logToFile,
             if (logToConsole_)
             {
                 isInitialized_ = true;
-                WriteLog(LOG_LEVEL_ERROR, "Failed to open log file for writing.");
+                PIXL_LOG_ERROR(Errc::FileNotFound, "Log", "Failed to open log file for writing: {}", logFilePath);
             }
         }
     }

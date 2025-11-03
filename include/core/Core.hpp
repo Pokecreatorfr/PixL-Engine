@@ -1,7 +1,8 @@
 #pragma once
+#include <core/ECS.hpp>
 #include <core/Log.hpp>
+#include <core/maths/Maths.hpp>
 #include <cstdio>
-#include <maths/Maths.hpp>
 
 namespace pixl::core
 {

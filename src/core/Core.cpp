@@ -1,4 +1,5 @@
 #include <core/Core.hpp>
+#include <core/Errors.hpp>
 
 using namespace pixl::core;
 
@@ -22,10 +23,11 @@ int Core::Init(const CoreInitData &initData)
               initData.enableConsole,
               initData.logToFile);
 
+    Errors::Init();
+
     if (maths::Maths::Init() != 0)
     {
-        Log::WriteLog(LOG_LEVEL_FATAL, "Failed to initialize Maths module.");
-        return -1;
+        PIXL_LOG_AND_RETURN_ERROR(-1, Errc::UnknownError, "Core", "Failed to initialize Maths module");
     }
 
     IsInitialized_ = true;
@@ -44,7 +46,7 @@ int pixl::core::Core::Quit()
 
     if (maths::Maths::Quit() != 0)
     {
-        Log::WriteLog(LOG_LEVEL_WARNING, "Failed to quit Maths module properly.");
+        PIXL_LOG_ERROR(Errc::UnknownError, "Core", "Failed to quit Maths module properly");
     }
 
     Log::Quit();
