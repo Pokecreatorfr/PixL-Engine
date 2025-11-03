@@ -1,0 +1,3 @@
+[submodule "libs/PixL-Pak"]
+	path = libs/PixL-Pak
+	url = git@github.com:MatheoVignaud/PixL-Pak.git
