@@ -5,3 +5,4 @@ obj/
 .xmake
 build/
 /.vscode
+flake.lock

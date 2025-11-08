@@ -295,6 +295,7 @@ namespace pixl::gfx
 
     enum class ImageViewType : uint8_t
     {
+        TYPE_1D,
         TYPE_2D,
         TYPE_2D_ARRAY,
         TYPE_3D,

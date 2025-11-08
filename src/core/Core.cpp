@@ -10,7 +10,6 @@ int Core::Init(const CoreInitData &initData)
 {
     if (initData.enableConsole)
     {
-        // write build info to console
         const BuildInfo &info = GetBuildInfo();
         printf("Initializing %s\n", initData.appName);
         printf("Build Date: %s\n", info.buildDate);

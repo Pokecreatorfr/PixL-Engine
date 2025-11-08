@@ -1,43 +1,63 @@
 #pragma once
+#include <cstdint>
+#include <gfx/gfx_caps.hpp>
+#include <gfx/gfx_features.hpp>
 #include <gfx/gfx_types.hpp>
 
 namespace pixl::gfx::device
 {
-    enum class EXTENSION_SUPPORT : uint32_t
-    {
-        MESH_SHADER = 1 << 0,
-        RAY_TRACING = 1 << 1,
-        VARIABLE_RATE_SHADING = 1 << 2,
-        SAMPLER_FEEDBACK = 1 << 3
-    };
 
-    enum class API : uint8_t
-    {
-        VULKAN,
-        DIRECTX12,
-        METAL,
-        OPENGL,
-        OPENGL_ES
-    };
+  enum class API : uint8_t
+  {
+    VULKAN,
+    DIRECTX12,
+    METAL,
+    OPENGL,
+    OPENGL_ES
+  };
+  enum class DeviceType : uint8_t
+  {
+    UNKNOWN,
+    INTEGRATED_GPU,
+    DISCRETE_GPU,
+    VIRTUAL_GPU,
+    CPU
+  };
 
-    enum class DeviceType : uint8_t
-    {
-        UNKNOWN,
-        INTEGRATED_GPU,
-        DISCRETE_GPU,
-        VIRTUAL_GPU,
-        CPU
-    };
+  struct DeviceInfo
+  {
+    API api{API::VULKAN};
+    DeviceType type{DeviceType::UNKNOWN};
+    uint32_t apiVersionMajor{0}, apiVersionMinor{0};
+    uint32_t vendorId{0}, deviceId{0};
+    char name[256]{};
+    uint64_t vramBytes{0};
+    char driver[128]{};
 
-    struct DeviceInfo
-    {
-        API api;
-        DeviceType type;
-        uint32_t vendor_id;
-        uint32_t device_id;
-        char name[256];
-        uint64_t total_memory; // bytes
-        uint32_t supported_extensions;
-    };
+    Features supportedFeatures{};
+    Limits limits{};
+    QueueCaps queues{};
+    PresentCaps present{};
+    TextureFormat preferredColorFormat{TextureFormat::B8G8R8A8_UNORM_SRGB};
+    TextureFormat preferredDepthFormat{TextureFormat::D32_FLOAT};
+  };
+
+  struct RequestQueues
+  {
+    uint32_t graphics{1};
+    uint32_t compute{0};
+    uint32_t transfer{0};
+  };
+
+  struct DeviceCreateInfo
+  {
+    void *windowHandle{nullptr};
+    RequestQueues queues{};
+    Features requestedFeatures{};
+    TextureFormat preferredColorFormat{TextureFormat::B8G8R8A8_UNORM_SRGB};
+    TextureFormat preferredDepthFormat{TextureFormat::D32_FLOAT};
+    bool enableValidation{true};
+    bool headless{false};
+  };
 
 }
