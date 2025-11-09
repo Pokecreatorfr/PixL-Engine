@@ -192,13 +192,17 @@ namespace pixl::gfx
         std::vector<ImageLayout> m_swapchainImageLayouts;
         vk::Queue m_graphicsQueue{};
         std::unique_ptr<VulkanQueue> m_graphicsQueueWrapper{};
-        vk::UniqueSemaphore m_imageAvailableSemaphore{};
-        vk::UniqueSemaphore m_renderFinishedSemaphore{};
+        std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
+        std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
         vk::UniqueSemaphore m_graphicsTimelineSemaphore{};
         uint64_t m_graphicsTimelineValue{0};
         bool m_hasSwapchainImage{false};
         uint32_t m_currentSwapchainImage{0};
         bool m_acquireWaitPending{false};
+        uint32_t m_nextAcquireSemaphore{0};
+        vk::Semaphore m_pendingAcquireSemaphore{VK_NULL_HANDLE};
+        vk::Semaphore m_pendingRenderFinishedSemaphore{VK_NULL_HANDLE};
+        vk::Semaphore m_activeRenderFinishedSemaphore{VK_NULL_HANDLE};
         TextureFormat m_preferredColorFormat{TextureFormat::B8G8R8A8_UNORM_SRGB};
         vma::Allocator m_allocator{};
         vma::VulkanFunctions m_vmaFunctions{};
@@ -246,9 +250,15 @@ namespace pixl::gfx
         void createSwapchain(TextureFormat preferredFormat);
         void createSyncObjects();
         void setupQueues(const device::RequestQueues &queues);
+        vk::UniqueSemaphore createBinarySemaphore();
+        void ensureAcquireSemaphorePool(uint32_t count);
+        void ensureSwapchainSyncObjects(uint32_t imageCount);
+        vk::Semaphore nextAcquireSemaphore();
+        vk::Semaphore renderFinishedSemaphoreForImage(uint32_t imageIndex);
         void enqueueGarbage(uint64_t timelineValue, std::function<void()> &&deleter);
         void collectGarbage(bool force = false);
         uint64_t queryCompletedTimeline() const;
+        void waitForTimeline(uint64_t value);
 
         vk::ImageView getVkImageView(ImageView view) const;
         vk::PipelineLayout getVkPipelineLayout(PipelineLayout layout);
@@ -300,6 +310,10 @@ namespace pixl::gfx
         void bindIndexBuffer(Buffer buffer, uint64_t offset, IndexType type) override;
         void pushConstants(PipelineLayout layout, ShaderStage stages,
                            uint32_t offset, uint32_t size, const void *data) override;
+        void setViewport(float x, float y, float width, float height,
+                         float minDepth, float maxDepth) override;
+        void setScissor(int32_t x, int32_t y,
+                        uint32_t width, uint32_t height) override;
 
         void draw(uint32_t vtxCount, uint32_t instCount,
                   uint32_t firstVtx, uint32_t firstInst) override;
@@ -328,7 +342,13 @@ namespace pixl::gfx
 
         vk::CommandBuffer getCommandBuffer() const { return m_commandBuffer; }
         bool isReadyForSubmit() const { return !m_recording && m_hasWork; }
-        void markSubmitted() { m_hasWork = false; }
+        void markSubmitted(uint64_t timelineValue)
+        {
+            m_hasWork = false;
+            m_pendingExecution = true;
+            m_submittedTimelineValue = timelineValue;
+        }
+        void waitForCompletion();
 
     private:
         VulkanDevice &m_device;
@@ -340,6 +360,8 @@ namespace pixl::gfx
         bool m_rendering{false};
         PipelineLayout m_boundLayout{};
         vk::PipelineBindPoint m_boundBindPoint{vk::PipelineBindPoint::eGraphics};
+        bool m_pendingExecution{false};
+        uint64_t m_submittedTimelineValue{0};
 
         void ensureRecording(const char *action) const;
         const VulkanDevice::ImageViewResource &getImageViewResource(ImageView view) const;

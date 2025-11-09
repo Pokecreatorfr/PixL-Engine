@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 
     SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland");
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0)
+    if (SDL_Init(SDL_INIT_VIDEO) != true)
     {
         std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
         headless = true;
@@ -374,6 +374,10 @@ int main(int argc, char **argv)
             commandList->bindPipeline(pipeline);
             commandList->bindPipelineLayout(demoPipelineLayout);
             commandList->bindDescriptorSet(demoPipelineLayout, 1, descriptorTable.sets().material);
+            commandList->setViewport(0.0f, 0.0f,
+                                      static_cast<float>(extent.first),
+                                      static_cast<float>(extent.second));
+            commandList->setScissor(0, 0, extent.first, extent.second);
 
             const float timeSeconds = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
             glm::mat4 mvp = glm::rotate(glm::mat4(1.0f), timeSeconds, glm::vec3(0.0f, 0.0f, 1.0f));

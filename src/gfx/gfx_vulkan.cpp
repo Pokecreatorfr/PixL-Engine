@@ -319,10 +319,6 @@ namespace pixl::gfx
             {
                 return vk::ImageType::e3D;
             }
-            if (desc.height == 1)
-            {
-                return vk::ImageType::e1D;
-            }
             return vk::ImageType::e2D;
         }
 
@@ -1317,8 +1313,11 @@ namespace pixl::gfx
             resetAllTransientPools();
             destroySwapchain();
             m_graphicsTimelineSemaphore.reset();
-            m_renderFinishedSemaphore.reset();
-            m_imageAvailableSemaphore.reset();
+            m_renderFinishedSemaphores.clear();
+            m_imageAvailableSemaphores.clear();
+            m_pendingAcquireSemaphore = VK_NULL_HANDLE;
+            m_pendingRenderFinishedSemaphore = VK_NULL_HANDLE;
+            m_activeRenderFinishedSemaphore = VK_NULL_HANDLE;
             m_graphicsQueueWrapper.reset();
             {
                 std::lock_guard<std::mutex> lock(m_resourceMutex);
@@ -1346,6 +1345,11 @@ namespace pixl::gfx
                 m_allocator = nullptr;
             }
             m_device.reset();
+        }
+
+        if (m_surface)
+        {
+            m_surface.reset();
         }
 
         if (m_instance.get())
@@ -1386,6 +1390,8 @@ namespace pixl::gfx
         }
         m_hasSwapchainImage = false;
         m_acquireWaitPending = false;
+        m_pendingRenderFinishedSemaphore = VK_NULL_HANDLE;
+        m_activeRenderFinishedSemaphore = VK_NULL_HANDLE;
     }
 
     void VulkanDevice::createLogicalDevice(const DeviceCreateInfo &,
@@ -1648,6 +1654,7 @@ namespace pixl::gfx
         m_swapchainExtent = extent;
 
         m_swapchainImages = m_device->getSwapchainImagesKHR(m_swapchain.get()).value;
+        ensureSwapchainSyncObjects(static_cast<uint32_t>(m_swapchainImages.size()));
         releaseSwapchainResources();
         m_swapchainImageLayouts.resize(m_swapchainImages.size(), ImageLayout::UNDEFINED);
         for (size_t i = 0; i < m_swapchainImages.size(); ++i)
@@ -1710,20 +1717,14 @@ namespace pixl::gfx
             return;
         }
 
-        vk::SemaphoreCreateInfo semaphoreInfo{};
-        vk::ResultValue<vk::UniqueSemaphore> imageAvailableRes = m_device->createSemaphoreUnique(semaphoreInfo);
-        if (imageAvailableRes.result != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to create semaphore");
-        }
-        m_imageAvailableSemaphore = std::move(imageAvailableRes.value);
+        m_imageAvailableSemaphores.clear();
+        m_renderFinishedSemaphores.clear();
+        m_nextAcquireSemaphore = 0;
+        m_pendingAcquireSemaphore = VK_NULL_HANDLE;
+        m_pendingRenderFinishedSemaphore = VK_NULL_HANDLE;
+        m_activeRenderFinishedSemaphore = VK_NULL_HANDLE;
 
-        vk::ResultValue<vk::UniqueSemaphore> renderFinishedRes = m_device->createSemaphoreUnique(semaphoreInfo);
-        if (renderFinishedRes.result != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to create semaphore");
-        }
-        m_renderFinishedSemaphore = std::move(renderFinishedRes.value);
+        ensureAcquireSemaphorePool(2);
 
         vk::SemaphoreTypeCreateInfo timelineInfo{};
         timelineInfo.semaphoreType = vk::SemaphoreType::eTimeline;
@@ -1738,6 +1739,63 @@ namespace pixl::gfx
         }
         m_graphicsTimelineSemaphore = std::move(timelineRes.value);
         m_graphicsTimelineValue = 0;
+    }
+
+    vk::UniqueSemaphore VulkanDevice::createBinarySemaphore()
+    {
+        vk::SemaphoreCreateInfo semaphoreInfo{};
+        vk::ResultValue<vk::UniqueSemaphore> result = m_device->createSemaphoreUnique(semaphoreInfo);
+        ensureSuccess(result.result, "Failed to create semaphore");
+        return std::move(result.value);
+    }
+
+    void VulkanDevice::ensureAcquireSemaphorePool(uint32_t count)
+    {
+        const uint32_t desired = std::max(count, 1u);
+        while (m_imageAvailableSemaphores.size() < desired)
+        {
+            m_imageAvailableSemaphores.push_back(createBinarySemaphore());
+        }
+        if (!m_imageAvailableSemaphores.empty() && m_nextAcquireSemaphore >= m_imageAvailableSemaphores.size())
+        {
+            m_nextAcquireSemaphore = 0;
+        }
+    }
+
+    void VulkanDevice::ensureSwapchainSyncObjects(uint32_t imageCount)
+    {
+        if (imageCount == 0)
+        {
+            return;
+        }
+
+        ensureAcquireSemaphorePool(imageCount);
+        while (m_renderFinishedSemaphores.size() < imageCount)
+        {
+            m_renderFinishedSemaphores.push_back(createBinarySemaphore());
+        }
+    }
+
+    vk::Semaphore VulkanDevice::nextAcquireSemaphore()
+    {
+        if (m_imageAvailableSemaphores.empty())
+        {
+            ensureAcquireSemaphorePool(1);
+        }
+
+        const uint32_t poolSize = static_cast<uint32_t>(m_imageAvailableSemaphores.size());
+        const uint32_t index = m_nextAcquireSemaphore % poolSize;
+        m_nextAcquireSemaphore = (index + 1) % poolSize;
+        return m_imageAvailableSemaphores[index].get();
+    }
+
+    vk::Semaphore VulkanDevice::renderFinishedSemaphoreForImage(uint32_t imageIndex)
+    {
+        if (m_renderFinishedSemaphores.size() <= imageIndex)
+        {
+            ensureSwapchainSyncObjects(imageIndex + 1);
+        }
+        return m_renderFinishedSemaphores[imageIndex].get();
     }
 
     void VulkanDevice::setupQueues(const device::RequestQueues &queues)
@@ -1781,6 +1839,27 @@ namespace pixl::gfx
             throw std::runtime_error("Failed to query timeline semaphore");
         }
         return valueResult.value;
+    }
+
+    void VulkanDevice::waitForTimeline(uint64_t value)
+    {
+        if (!value || !m_graphicsTimelineSemaphore || !m_device)
+        {
+            return;
+        }
+        const uint64_t completed = queryCompletedTimeline();
+        if (completed >= value)
+        {
+            return;
+        }
+
+        vk::Semaphore semaphore = m_graphicsTimelineSemaphore.get();
+        vk::SemaphoreWaitInfo waitInfo{};
+        waitInfo.semaphoreCount = 1;
+        waitInfo.pSemaphores = &semaphore;
+        waitInfo.pValues = &value;
+        ensureSuccess(m_device->waitSemaphoresKHR(waitInfo, std::numeric_limits<uint64_t>::max()),
+                      "Failed to wait for timeline semaphore");
     }
 
     void VulkanDevice::collectGarbage(bool force)
@@ -2268,10 +2347,6 @@ namespace pixl::gfx
 
         const bool imageIs3D = imageResource.desc.depth > 1;
         ImageViewType requestedType = viewDesc.type;
-        if (requestedType == ImageViewType::TYPE_2D && imageResource.desc.height == 1 && imageResource.desc.depth == 1)
-        {
-            requestedType = ImageViewType::TYPE_1D;
-        }
         const vk::ImageViewType viewType = toVkImageViewType(requestedType);
         if (viewType == vk::ImageViewType::e3D && !imageIs3D)
         {
@@ -3304,6 +3379,7 @@ namespace pixl::gfx
         {
             throw std::runtime_error("Attempted to destroy command list created by another backend");
         }
+        vkList->waitForCompletion();
         delete vkList;
     }
 
@@ -3324,19 +3400,22 @@ namespace pixl::gfx
             return false;
         }
 
+        vk::Semaphore acquireSemaphore = nextAcquireSemaphore();
+
         vk::ResultValue<uint32_t> result = m_device->acquireNextImageKHR(
             m_swapchain.get(),
             std::numeric_limits<uint64_t>::max(),
-            m_imageAvailableSemaphore.get(),
+            acquireSemaphore,
             VK_NULL_HANDLE);
 
         if (result.result == vk::Result::eErrorOutOfDateKHR)
         {
             createSwapchain(m_preferredColorFormat);
+            acquireSemaphore = nextAcquireSemaphore();
             result = m_device->acquireNextImageKHR(
                 m_swapchain.get(),
                 std::numeric_limits<uint64_t>::max(),
-                m_imageAvailableSemaphore.get(),
+                acquireSemaphore,
                 VK_NULL_HANDLE);
         }
 
@@ -3348,6 +3427,8 @@ namespace pixl::gfx
         m_currentSwapchainImage = result.value;
         m_hasSwapchainImage = true;
         m_acquireWaitPending = true;
+        m_pendingAcquireSemaphore = acquireSemaphore;
+        m_pendingRenderFinishedSemaphore = renderFinishedSemaphoreForImage(m_currentSwapchainImage);
         outImageIndex = m_currentSwapchainImage;
         return true;
     }
@@ -3359,11 +3440,17 @@ namespace pixl::gfx
             return;
         }
 
-        vk::Semaphore waitSemaphores[] = {m_renderFinishedSemaphore.get()};
+        vk::Semaphore waitSemaphores[1];
+        uint32_t waitCount = 0;
+        if (m_activeRenderFinishedSemaphore)
+        {
+            waitSemaphores[0] = m_activeRenderFinishedSemaphore;
+            waitCount = 1;
+        }
         vk::SwapchainKHR swapchainHandle = m_swapchain.get();
         vk::PresentInfoKHR presentInfo{};
-        presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = waitSemaphores;
+        presentInfo.waitSemaphoreCount = waitCount;
+        presentInfo.pWaitSemaphores = waitCount ? waitSemaphores : nullptr;
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = &swapchainHandle;
         presentInfo.pImageIndices = &imageIndex;
@@ -3379,6 +3466,7 @@ namespace pixl::gfx
         }
 
         m_hasSwapchainImage = false;
+        m_activeRenderFinishedSemaphore = VK_NULL_HANDLE;
         collectGarbage();
     }
 
@@ -3488,6 +3576,17 @@ namespace pixl::gfx
         return m_device.requireImageView(view);
     }
 
+    void VulkanCommandList::waitForCompletion()
+    {
+        if (!m_pendingExecution)
+        {
+            return;
+        }
+        m_device.waitForTimeline(m_submittedTimelineValue);
+        m_pendingExecution = false;
+        m_submittedTimelineValue = 0;
+    }
+
     void VulkanCommandList::begin()
     {
         if (m_recording)
@@ -3498,6 +3597,8 @@ namespace pixl::gfx
         {
             throw std::runtime_error("CommandList rendering state invalid");
         }
+
+        waitForCompletion();
 
         m_commandBuffer.reset();
 
@@ -3741,6 +3842,30 @@ namespace pixl::gfx
         m_commandBuffer.pushConstants(vkLayout, toVkShaderStageFlags(stages), offset, size, data);
     }
 
+    void VulkanCommandList::setViewport(float x, float y, float width, float height,
+                                        float minDepth, float maxDepth)
+    {
+        ensureRecording("setViewport");
+        vk::Viewport viewport{};
+        viewport.x = x;
+        viewport.y = y;
+        viewport.width = width;
+        viewport.height = height;
+        viewport.minDepth = minDepth;
+        viewport.maxDepth = maxDepth;
+        m_commandBuffer.setViewport(0, 1, &viewport);
+    }
+
+    void VulkanCommandList::setScissor(int32_t x, int32_t y,
+                                       uint32_t width, uint32_t height)
+    {
+        ensureRecording("setScissor");
+        vk::Rect2D rect{};
+        rect.offset = vk::Offset2D{x, y};
+        rect.extent = vk::Extent2D{width, height};
+        m_commandBuffer.setScissor(0, 1, &rect);
+    }
+
     void VulkanCommandList::draw(uint32_t vtxCount, uint32_t instCount,
                                  uint32_t firstVtx, uint32_t firstInst)
     {
@@ -3873,25 +3998,32 @@ namespace pixl::gfx
         }
 
         std::vector<vk::SemaphoreSubmitInfo> waitInfos;
-        if (m_device.m_hasSwapchainImage && m_device.m_acquireWaitPending)
+        if (m_device.m_acquireWaitPending && m_device.m_pendingAcquireSemaphore)
         {
             vk::SemaphoreSubmitInfo wait{};
-            wait.semaphore = m_device.m_imageAvailableSemaphore.get();
+            wait.semaphore = m_device.m_pendingAcquireSemaphore;
             wait.stageMask = vk::PipelineStageFlagBits2::eColorAttachmentOutput;
             waitInfos.push_back(wait);
             m_device.m_acquireWaitPending = false;
+            m_device.m_pendingAcquireSemaphore = VK_NULL_HANDLE;
         }
 
-        vk::SemaphoreSubmitInfo signalRender{};
-        signalRender.semaphore = m_device.m_renderFinishedSemaphore.get();
-        signalRender.stageMask = vk::PipelineStageFlagBits2::eAllGraphics;
+        std::vector<vk::SemaphoreSubmitInfo> signalInfos;
+        if (m_device.m_pendingRenderFinishedSemaphore)
+        {
+            vk::SemaphoreSubmitInfo signalRender{};
+            signalRender.semaphore = m_device.m_pendingRenderFinishedSemaphore;
+            signalRender.stageMask = vk::PipelineStageFlagBits2::eAllGraphics;
+            signalInfos.push_back(signalRender);
+            m_device.m_activeRenderFinishedSemaphore = m_device.m_pendingRenderFinishedSemaphore;
+            m_device.m_pendingRenderFinishedSemaphore = VK_NULL_HANDLE;
+        }
 
         vk::SemaphoreSubmitInfo signalTimeline{};
         signalTimeline.semaphore = m_device.m_graphicsTimelineSemaphore.get();
         signalTimeline.stageMask = vk::PipelineStageFlagBits2::eAllCommands;
         signalTimeline.value = ++m_device.m_graphicsTimelineValue;
-
-        std::array<vk::SemaphoreSubmitInfo, 2> signalInfos = {signalRender, signalTimeline};
+        signalInfos.push_back(signalTimeline);
 
         vk::SubmitInfo2 submitInfo{};
         submitInfo.waitSemaphoreInfoCount = static_cast<uint32_t>(waitInfos.size());
@@ -3907,7 +4039,7 @@ namespace pixl::gfx
 
         for (VulkanCommandList *list : submittedLists)
         {
-            list->markSubmitted();
+            list->markSubmitted(signalTimeline.value);
         }
     }
 

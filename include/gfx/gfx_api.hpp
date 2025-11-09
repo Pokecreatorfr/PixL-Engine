@@ -58,6 +58,10 @@ namespace pixl::gfx
         virtual void bindIndexBuffer(Buffer, uint64_t offset, IndexType) = 0;
         virtual void pushConstants(PipelineLayout, ShaderStage stages,
                                    uint32_t offset, uint32_t size, const void *data) = 0;
+        virtual void setViewport(float x, float y, float width, float height,
+                                 float minDepth = 0.f, float maxDepth = 1.f) = 0;
+        virtual void setScissor(int32_t x, int32_t y,
+                                uint32_t width, uint32_t height) = 0;
 
         // Draws
         virtual void draw(uint32_t vtxCount, uint32_t instCount,
