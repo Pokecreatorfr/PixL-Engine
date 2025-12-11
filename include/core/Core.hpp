@@ -1,8 +1,9 @@
 #pragma once
-#include <core/ECS.hpp>
 #include <core/Log.hpp>
 #include <core/maths/Maths.hpp>
 #include <cstdio>
+#include <string>
+#include <vector>
 
 namespace pixl::core
 {
@@ -13,6 +14,9 @@ namespace pixl::core
         const char *cachePath = "./cache/";
         bool enableConsole = true;
         bool logToFile = true;
+        bool autoMountResourcePak = true;
+        const char *manifestFile = "main.pxl";
+        std::vector<std::string> pakFiles{};
     };
 
     struct BuildInfo

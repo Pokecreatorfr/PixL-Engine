@@ -24,12 +24,30 @@ add_requires("openmp")
 add_requires("nlohmann_json")
 add_requires("gtest")
 add_requires("fmt")
-add_requires("vulkan-hpp" , "vulkan-validationlayers" , "vulkan-memory-allocator-hpp" , "spirv-reflect" )
+add_requires("shaderc")
+add_requires("imgui" , { version = "v1.92.0-docking" ,configs = { sdl3_gpu = true , sdl3 = true} })
+add_requires("sol2")
+add_requires("stb")
 
+
+rule("compile.shaders")
+    set_extensions(".vert.glsl", ".frag.glsl")
+    on_buildcmd_file(function (target, batchcmds, sourcefile, opt)
+        local outdir = path.join(target:targetdir(), "shaders")
+        batchcmds:mkdir(outdir)
+        local basename = path.basename(sourcefile):gsub("%.glsl$", "")
+        local outfile = path.join(outdir, basename .. ".spv")
+        local glslc = os.getenv("GLSLC") or "glslc"
+        local stage = "vert"
+        if sourcefile:match("%.frag%.glsl$") then
+            stage = "frag"
+        end
+        batchcmds:show_progress(opt.progress, "${color.build.object}compiling.shader %s", sourcefile)
+        batchcmds:vrunv(glslc, {"-std=450", "-O", "-fshader-stage=" .. stage, "-o", outfile, sourcefile})
+    end)
 
 target("PixL-Engine")
     set_kind("binary")
-    add_defines("VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1", "VULKAN_HPP_NO_EXCEPTIONS")
 
     add_cflags("-fopenmp", {force = true})
     add_cxxflags("-fopenmp", {force = true})
@@ -37,12 +55,13 @@ target("PixL-Engine")
 
     add_includedirs("include", "libs")
     add_files("src/**.cpp", "main.cpp")
-    add_packages( "glm", "openmp", "fmt","nlohmann_json", "vulkan-hpp" , "vulkan-validationlayers", "vulkan-memory-allocator-hpp", "libsdl3" , "spirv-reflect")
-    add_links("vulkan") 
+    add_files("resources/shaders/*.vert.glsl|*.frag.glsl", {rule = "compile.shaders"})
+    add_files("resources/shaders/*.frag.glsl|*.vert.glsl", {rule = "compile.shaders"})
+    add_packages( "glm", "openmp", "fmt","nlohmann_json", "libsdl3", "stb" )
+
 
 target("Test")
     set_kind("binary")
-    add_defines("VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1", "VULKAN_HPP_NO_EXCEPTIONS")
 
     add_cflags("-fopenmp", {force = true})
     add_cxxflags("-fopenmp", {force = true})
@@ -51,20 +70,5 @@ target("Test")
     add_includedirs("include", "tests" , "libs")
     add_files("tests/**.cpp", "src/**.cpp", "main_tests.cpp")
     add_packages("gtest")
-    add_packages( "glm", "openmp", "fmt","nlohmann_json", "vulkan-hpp" , "vulkan-validationlayers", "vulkan-memory-allocator-hpp", "libsdl3" , "spirv-reflect")
+    add_packages( "glm", "openmp", "fmt","nlohmann_json", "libsdl3", "stb" )
     add_deps("PixL-Engine")
-
-        add_links("vulkan") 
-
-target("TestSDL")
-    set_kind("binary")
-    add_defines("VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1", "VULKAN_HPP_NO_EXCEPTIONS")
-
-    add_cflags("-fopenmp", {force = true})
-    add_cxxflags("-fopenmp", {force = true})
-    add_ldflags("-fopenmp", {force = true})
-
-    add_includedirs("include", "libs")
-    add_files("src/**.cpp", "main_sdl3.cpp")
-    add_packages( "glm", "openmp", "fmt","nlohmann_json", "vulkan-hpp" , "vulkan-validationlayers", "vulkan-memory-allocator-hpp", "libsdl3" , "spirv-reflect")
-    add_links("vulkan") 

@@ -37,13 +37,13 @@ namespace pixl::core::maths
         static inline constexpr float DegToRad(float deg) noexcept { return deg * (PI / 180.0f); }
         static inline constexpr float RadToDeg(float rad) noexcept { return rad * (180.0f / PI); }
 
-        static inline constexpr float Sin(float v) noexcept { return std::sin(v); }
-        static inline constexpr float Cos(float v) noexcept { return std::cos(v); }
-        static inline constexpr float Tan(float v) noexcept { return std::tan(v); }
-        static inline constexpr float Asin(float v) noexcept { return std::asin(v); }
-        static inline constexpr float Acos(float v) noexcept { return std::acos(v); }
-        static inline constexpr float Atan(float v) noexcept { return std::atan(v); }
-        static inline constexpr float Atan2(float y, float x) noexcept { return std::atan2(y, x); }
+        static inline float Sin(float v) noexcept { return std::sin(v); }
+        static inline float Cos(float v) noexcept { return std::cos(v); }
+        static inline float Tan(float v) noexcept { return std::tan(v); }
+        static inline float Asin(float v) noexcept { return std::asin(v); }
+        static inline float Acos(float v) noexcept { return std::acos(v); }
+        static inline float Atan(float v) noexcept { return std::atan(v); }
+        static inline float Atan2(float y, float x) noexcept { return std::atan2(y, x); }
 
         //***************************************************//
         //* Normalization, Clamping, Lerp, SmoothStep, Sign *//
@@ -83,15 +83,15 @@ namespace pixl::core::maths
 
         // Common Maths
 
-        static inline constexpr float Floor(float v) noexcept { return std::floor(v); }
-        static inline constexpr float Ceil(float v) noexcept { return std::ceil(v); }
-        static inline constexpr float Round(float v) noexcept { return std::round(v); }
-        static inline constexpr float Frac(float v) noexcept { return v - std::floor(v); }
-        static inline constexpr float Sqrt(float v) noexcept { return std::sqrt(v); }
-        static inline constexpr float Pow(float a, float b) noexcept { return std::pow(a, b); }
-        static inline constexpr float Exp(float v) noexcept { return std::exp(v); }
-        static inline constexpr float Log(float v) noexcept { return std::log(v); }
-        static inline constexpr float Abs(float v) noexcept { return std::fabs(v); }
+        static inline float Floor(float v) noexcept { return std::floor(v); }
+        static inline float Ceil(float v) noexcept { return std::ceil(v); }
+        static inline float Round(float v) noexcept { return std::round(v); }
+        static inline float Frac(float v) noexcept { return v - std::floor(v); }
+        static inline float Sqrt(float v) noexcept { return std::sqrt(v); }
+        static inline float Pow(float a, float b) noexcept { return std::pow(a, b); }
+        static inline float Exp(float v) noexcept { return std::exp(v); }
+        static inline float Log(float v) noexcept { return std::log(v); }
+        static inline float Abs(float v) noexcept { return std::fabs(v); }
 
         // Vexctor operations
 

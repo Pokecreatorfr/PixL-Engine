@@ -87,6 +87,7 @@ namespace pixl::core
         FileNotFound = 2,
         InvalidParameter = 3,
         UninitialisedSubsystem = 4,
+        AlreadyInitialisedSubsystem = 5,
     };
 
     struct ErrorLog

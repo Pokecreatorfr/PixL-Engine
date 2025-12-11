@@ -1,0 +1,26 @@
+*** Begin Patch
+*** Update File: include/gfx/Gpu.hpp
+@@
+         bool UploadTextureData(TextureResource &resource, const void *data, size_t dataSize);
+         bool UploadBufferData(BufferResource &resource, const void *data, size_t dataSize);
+         bool EnsureDepthTexture(uint32_t width, uint32_t height);
++        bool EnsureFallbackColorTarget(uint32_t width, uint32_t height);
+         int BlitToSwapchain(TextureHandle source);
+         int AcquireSwapchain(SDL_GPUTexture **outTex, Uint32 &outW, Uint32 &outH);
+         void ReleaseSwapchain();
+@@
+         SDL_GPUTexture *swapchainTexture_;
+         SDL_GPUTextureFormat swapchainFormat_;
+         Uint32 swapchainWidth_;
+         Uint32 swapchainHeight_;
+         SDL_GPUTexture *depthTexture_;
+         SDL_GPUTextureFormat depthFormat_;
+         Uint32 depthWidth_;
+         Uint32 depthHeight_;
++        SDL_GPUTexture *fallbackColorTexture_;
++        Uint32 fallbackWidth_;
++        Uint32 fallbackHeight_;
+         SDL_GPUTexture *lightingTexture_; // temporary target for lighting pass if needed
+         const Window *window_;
+         bool isInitialized_;
+*** End Patch

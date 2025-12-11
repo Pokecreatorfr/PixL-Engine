@@ -12,8 +12,6 @@ int IO::Init()
         return 0;
     }
 
-    pixl::core::Log::Init();
-
     if (Pak::Init() != 0)
     {
         PIXL_LOG_AND_RETURN_ERROR(-1, pixl::core::Errc::UnknownError, "IO", "Failed to initialize Pak subsystem");
@@ -30,6 +28,7 @@ int IO::Quit()
         return 0;
     }
 
+    Pak::Quit();
     IsInitialized_ = false;
     return 0;
 }
@@ -65,6 +64,10 @@ std::vector<char> IO::ReadFileToBuffer(const std::string &filepath)
     FILE *file = fopen(filepath.c_str(), "rb");
     if (!file)
     {
+        if (Pak::TryRead(filepath, buffer))
+        {
+            return buffer;
+        }
         PIXL_LOG_AND_RETURN_ERROR(buffer, pixl::core::Errc::FileNotFound, "IO", "File not found: %s", filepath.c_str());
     }
 
@@ -106,7 +109,7 @@ bool IO::WriteBufferToFile(const std::string &filepath, const std::vector<char> 
     size_t bytesWritten = fwrite(buffer.data(), 1, buffer.size(), file);
     fclose(file);
 
-    return true;
+    return bytesWritten == buffer.size();
 }
 
 bool IO::FileExists(const std::string &filepath)
@@ -136,5 +139,5 @@ bool IO::FileExists(const std::string &filepath)
         return true;
     }
 
-    return false;
+    return Pak::HasFile(filepath);
 }
