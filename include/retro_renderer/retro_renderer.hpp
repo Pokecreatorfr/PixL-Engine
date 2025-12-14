@@ -70,6 +70,36 @@ struct TexturedTriangle
 
 using TextureID = uint64_t;
 
+struct PBRMaterial
+{
+    TextureID albedo_texture = 0;
+    TextureID normal_texture = 0;
+    TextureID metallic_roughness_texture = 0;
+    TextureID ao_texture = 0;
+    TextureID emissive_texture = 0;
+    float metallic_factor = 0.0f; // fallback when no metallic map
+    float roughness_factor = 1.0f;
+    float ao_factor = 1.0f;
+    float emissive_strength = 0.0f;
+
+    inline void ApplyFallbacks()
+    {
+        if (metallic_roughness_texture == 0)
+        {
+            metallic_factor = 0.0f;
+            roughness_factor = 1.0f;
+        }
+        if (ao_texture == 0)
+        {
+            ao_factor = 1.0f;
+        }
+        if (emissive_texture == 0)
+        {
+            emissive_strength = 0.0f;
+        }
+    }
+};
+
 class RetroRenderer
 {
     RetroRenderer();
@@ -108,6 +138,14 @@ public:
     static int DrawIndexedTexturedTriangleArray(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, TextureID texture, bool transparent = false);
     static int DrawIndexedTriangleArrayModel(Vertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, const glm::mat4 *model, bool transparent = false);
     static int DrawIndexedTexturedTriangleArrayModel(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, TextureID texture, const glm::mat4 *model, bool transparent = false);
+    static int DrawIndexedTexturedTriangleArrayPBR(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, const glm::mat4 *model, const PBRMaterial &material, bool transparent = false);
+
+    struct Advanced
+    {
+        int DrawPBRTriangleArray(const std::vector<Triangle> &triangles, PBRMaterial material, bool transparent = false);
+        int DrawPBRTexturedTriangleArray(const std::vector<TexturedTriangle> &triangles, PBRMaterial material, bool transparent = false);
+    };
+
     // GPU-resident meshes
     static int RegisterIndexedTriangleMesh(Vertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, int &out_handle);
     static int RegisterIndexedTexturedTriangleMesh(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, TextureID texture, int &out_handle);
@@ -134,12 +172,16 @@ private:
     SDL_GPUShader *color_frag_shader;
     SDL_GPUShader *textured_vert_shader;
     SDL_GPUShader *textured_frag_shader;
+    SDL_GPUShader *pbr_vert_shader;
+    SDL_GPUShader *pbr_frag_shader;
 
     SDL_GPUGraphicsPipeline *color_pipeline;
     SDL_GPUGraphicsPipeline *color_pipeline_transparent;
     SDL_GPUGraphicsPipeline *textured_pipeline;
     SDL_GPUGraphicsPipeline *textured_pipeline_transparent;
     SDL_GPUGraphicsPipeline *line_pipeline;
+    SDL_GPUGraphicsPipeline *pbr_pipeline;
+    SDL_GPUGraphicsPipeline *pbr_pipeline_transparent;
 
     SDL_GPUSampler *texture_sampler;
 
@@ -152,6 +194,9 @@ private:
     size_t color_index_buffer_size;
     SDL_GPUBuffer *textured_index_buffer;
     size_t textured_index_buffer_size;
+    SDL_GPUTexture *fallback_white_texture = nullptr;
+    SDL_GPUTexture *fallback_black_texture = nullptr;
+    SDL_GPUTexture *fallback_mr_texture = nullptr;
 
     // Renderer storages
 
@@ -192,6 +237,21 @@ private:
     };
     std::vector<IndexedCmd> indexed_color_cmds;
     std::vector<IndexedCmd> indexed_textured_cmds;
+    struct PBRIndexedCmd
+    {
+        bool transparent;
+        uint32_t first_index;
+        uint32_t index_count;
+        bool has_model;
+        glm::mat4 model;
+        SDL_GPUTexture *albedo;
+        SDL_GPUTexture *metallic_roughness;
+        SDL_GPUTexture *ao;
+        SDL_GPUTexture *emissive;
+        glm::vec4 factors; // metallic, roughness, ao, emissiveStrength
+        glm::ivec4 flags;  // albedo, mr, ao, emissive
+    };
+    std::vector<PBRIndexedCmd> pbr_cmds;
 
     // Texture
     std::map<TextureID, SDL_GPUTexture *> texture_cache;

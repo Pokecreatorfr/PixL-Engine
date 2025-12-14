@@ -23,11 +23,15 @@ RetroRenderer::RetroRenderer()
       color_frag_shader(nullptr),
       textured_vert_shader(nullptr),
       textured_frag_shader(nullptr),
+      pbr_vert_shader(nullptr),
+      pbr_frag_shader(nullptr),
       color_pipeline(nullptr),
       color_pipeline_transparent(nullptr),
       textured_pipeline(nullptr),
       textured_pipeline_transparent(nullptr),
       line_pipeline(nullptr),
+      pbr_pipeline(nullptr),
+      pbr_pipeline_transparent(nullptr),
       texture_sampler(nullptr),
       color_vertex_buffer(nullptr),
       color_vertex_buffer_size(0),
@@ -469,6 +473,19 @@ static SDL_GPUTexture *CreateTextureFromSurface(SDL_GPUDevice *gpu, SDL_Surface 
     return texture;
 }
 
+static SDL_GPUTexture *CreateSolidTexture(SDL_GPUDevice *gpu, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    SDL_Surface *surf = SDL_CreateSurface(1, 1, SDL_PIXELFORMAT_RGBA8888);
+    if (!surf)
+        return nullptr;
+    uint32_t *pix = static_cast<uint32_t *>(surf->pixels);
+    *pix = (static_cast<uint32_t>(a) << 24) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(g) << 8) | static_cast<uint32_t>(r);
+    int err = 0;
+    SDL_GPUTexture *tex = CreateTextureFromSurface(gpu, surf, err);
+    SDL_DestroySurface(surf);
+    return tex;
+}
+
 RetroRenderer *RetroRenderer::_instance = nullptr;
 
 int RetroRenderer::Init(int width, int height, std::string window_title)
@@ -573,15 +590,15 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
         .min_filter = SDL_GPU_FILTER_LINEAR,
         .mag_filter = SDL_GPU_FILTER_LINEAR,
         .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-        .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-        .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-        .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+        .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+        .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+        .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
         .mip_lod_bias = 0.0f,
         .max_anisotropy = 1.0f,
         .compare_op = SDL_GPU_COMPAREOP_ALWAYS,
         .min_lod = 0.0f,
         .max_lod = 16.0f,
-        .enable_anisotropy = false,
+        .enable_anisotropy = true,
         .enable_compare = false,
         .props = 0,
     };
@@ -591,6 +608,16 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
         SDL_Log("Failed to create sampler: %s", SDL_GetError());
         Quit();
         return -8; // Sampler creation failed
+    }
+
+    _instance->fallback_white_texture = CreateSolidTexture(gpu, 255, 255, 255, 255);
+    _instance->fallback_black_texture = CreateSolidTexture(gpu, 0, 0, 0, 255);
+    _instance->fallback_mr_texture = CreateSolidTexture(gpu, 255, 255, 0, 255); // occlusion=1, rough=1, metal=0
+    if (_instance->fallback_white_texture == nullptr || _instance->fallback_black_texture == nullptr || _instance->fallback_mr_texture == nullptr)
+    {
+        SDL_Log("Failed to create fallback textures");
+        Quit();
+        return -8;
     }
 
     std::string shader_dir = "build/shaders/";
@@ -606,15 +633,10 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     _instance->color_frag_shader = CreateShader(gpu, shader_dir + "triangle.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 1);
     _instance->textured_vert_shader = CreateShader(gpu, shader_dir + "textured_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 1);
     _instance->textured_frag_shader = CreateShader(gpu, shader_dir + "textured_triangle.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 1);
+    _instance->pbr_vert_shader = CreateShader(gpu, shader_dir + "pbr.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 1);
+    _instance->pbr_frag_shader = CreateShader(gpu, shader_dir + "pbr.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 4, 2);
 
-    if (_instance->color_vert_shader == nullptr || _instance->color_frag_shader == nullptr ||
-        _instance->textured_vert_shader == nullptr || _instance->textured_frag_shader == nullptr)
-    {
-        Quit();
-        return -9; // Shader creation failed
-    }
-
-    if (_instance->color_vert_shader == nullptr || _instance->color_frag_shader == nullptr || _instance->textured_vert_shader == nullptr || _instance->textured_frag_shader == nullptr)
+    if (_instance->color_vert_shader == nullptr || _instance->color_frag_shader == nullptr || _instance->textured_vert_shader == nullptr || _instance->textured_frag_shader == nullptr || _instance->pbr_vert_shader == nullptr || _instance->pbr_frag_shader == nullptr)
     {
         Quit();
         return -9; // Shader creation failed
@@ -653,8 +675,10 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     _instance->textured_pipeline = CreatePipeline(gpu, _instance->textured_vert_shader, _instance->textured_frag_shader, vb_tex, attrs_tex, _instance->color_format, _instance->depth_format, false, SDL_GPU_COMPAREOP_LESS, true, true, need_depth);
     _instance->textured_pipeline_transparent = CreatePipeline(gpu, _instance->textured_vert_shader, _instance->textured_frag_shader, vb_tex, attrs_tex, _instance->color_format, _instance->depth_format, true, SDL_GPU_COMPAREOP_LESS, true, false, need_depth);
     _instance->line_pipeline = CreatePipeline(gpu, _instance->color_vert_shader, _instance->color_frag_shader, vb_color, attrs_color, _instance->color_format, _instance->depth_format, false, SDL_GPU_COMPAREOP_LESS, true, false, need_depth, SDL_GPU_PRIMITIVETYPE_LINELIST);
+    _instance->pbr_pipeline = CreatePipeline(gpu, _instance->pbr_vert_shader, _instance->pbr_frag_shader, vb_tex, attrs_tex, _instance->color_format, _instance->depth_format, false, SDL_GPU_COMPAREOP_LESS, true, true, need_depth);
+    _instance->pbr_pipeline_transparent = CreatePipeline(gpu, _instance->pbr_vert_shader, _instance->pbr_frag_shader, vb_tex, attrs_tex, _instance->color_format, _instance->depth_format, true, SDL_GPU_COMPAREOP_LESS, true, false, need_depth);
 
-    if (_instance->color_pipeline == nullptr || _instance->color_pipeline_transparent == nullptr || _instance->textured_pipeline == nullptr || _instance->textured_pipeline_transparent == nullptr || _instance->line_pipeline == nullptr)
+    if (_instance->color_pipeline == nullptr || _instance->color_pipeline_transparent == nullptr || _instance->textured_pipeline == nullptr || _instance->textured_pipeline_transparent == nullptr || _instance->line_pipeline == nullptr || _instance->pbr_pipeline == nullptr || _instance->pbr_pipeline_transparent == nullptr)
     {
         SDL_Log("Pipeline creation failed: color=%p color_transparent=%p tex=%p tex_trans=%p",
                 _instance->color_pipeline,
@@ -725,6 +749,10 @@ int RetroRenderer::Quit()
         SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->textured_pipeline);
     if (_instance->textured_pipeline_transparent)
         SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->textured_pipeline_transparent);
+    if (_instance->pbr_pipeline)
+        SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->pbr_pipeline);
+    if (_instance->pbr_pipeline_transparent)
+        SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->pbr_pipeline_transparent);
     if (_instance->line_pipeline)
         SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->line_pipeline);
 
@@ -736,6 +764,17 @@ int RetroRenderer::Quit()
         SDL_ReleaseGPUShader(_instance->gpu, _instance->textured_vert_shader);
     if (_instance->textured_frag_shader)
         SDL_ReleaseGPUShader(_instance->gpu, _instance->textured_frag_shader);
+    if (_instance->pbr_vert_shader)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->pbr_vert_shader);
+    if (_instance->pbr_frag_shader)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->pbr_frag_shader);
+
+    if (_instance->fallback_white_texture)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->fallback_white_texture);
+    if (_instance->fallback_black_texture)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->fallback_black_texture);
+    if (_instance->fallback_mr_texture)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->fallback_mr_texture);
 
     SDL_DestroyGPUDevice(_instance->gpu);
     SDL_DestroyWindow(_instance->window);
@@ -1281,6 +1320,67 @@ int RetroRenderer::DrawIndexedTexturedTriangleArrayModel(TexturedVertex *vertice
         .index_count = static_cast<uint32_t>(index_count),
         .has_model = true,
         .model = *model,
+    });
+
+    return 0;
+}
+
+int RetroRenderer::DrawIndexedTexturedTriangleArrayPBR(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, const glm::mat4 *model, const PBRMaterial &material_in, bool transparent)
+{
+    if (_instance == nullptr)
+        return -1;
+    if (vertices == nullptr || indices == nullptr || vertex_count == 0 || index_count == 0 || model == nullptr)
+        return -2;
+
+    PBRMaterial mat = material_in;
+    mat.ApplyFallbacks();
+
+    auto resolve_tex = [&](TextureID id, SDL_GPUTexture *fallback) -> SDL_GPUTexture *
+    {
+        if (id == 0)
+            return fallback;
+        auto it = _instance->texture_cache.find(id);
+        if (it != _instance->texture_cache.end())
+            return it->second;
+        return fallback;
+    };
+
+    SDL_GPUTexture *albedo = resolve_tex(mat.albedo_texture, _instance->fallback_white_texture);
+    SDL_GPUTexture *mr = resolve_tex(mat.metallic_roughness_texture, _instance->fallback_mr_texture);
+    SDL_GPUTexture *ao = resolve_tex(mat.ao_texture, _instance->fallback_white_texture);
+    SDL_GPUTexture *emissive = resolve_tex(mat.emissive_texture, _instance->fallback_black_texture);
+
+    const uint32_t base_vertex = static_cast<uint32_t>(_instance->indexed_textured_vertices.size());
+    _instance->indexed_textured_vertices.insert(_instance->indexed_textured_vertices.end(), vertices, vertices + vertex_count);
+
+    const uint32_t first_index = static_cast<uint32_t>(_instance->indexed_textured_indices.size());
+    _instance->indexed_textured_indices.reserve(_instance->indexed_textured_indices.size() + index_count);
+    for (size_t i = 0; i < index_count; ++i)
+    {
+        uint32_t idx = indices[i];
+        if (idx >= vertex_count)
+            return -3; // Index out of range
+        _instance->indexed_textured_indices.push_back(base_vertex + idx);
+    }
+
+    glm::ivec4 flags(
+        mat.albedo_texture != 0 ? 1 : 0,
+        mat.metallic_roughness_texture != 0 ? 1 : 0,
+        mat.ao_texture != 0 ? 1 : 0,
+        mat.emissive_texture != 0 ? 1 : 0);
+
+    _instance->pbr_cmds.push_back(PBRIndexedCmd{
+        .transparent = transparent,
+        .first_index = first_index,
+        .index_count = static_cast<uint32_t>(index_count),
+        .has_model = true,
+        .model = *model,
+        .albedo = albedo,
+        .metallic_roughness = mr,
+        .ao = ao,
+        .emissive = emissive,
+        .factors = glm::vec4(mat.metallic_factor, mat.roughness_factor, mat.ao_factor, mat.emissive_strength),
+        .flags = flags,
     });
 
     return 0;
@@ -1994,6 +2094,48 @@ int RetroRenderer::RenderFrame()
         draw_calls++;
     }
 
+    if (!_instance->pbr_cmds.empty())
+    {
+        SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+        SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+        SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+        SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+        struct MaterialUBO
+        {
+            glm::vec4 factors;
+            glm::ivec4 flags;
+        };
+
+        for (const auto &cmd : _instance->pbr_cmds)
+        {
+            glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+            MatricesUBO mats{
+                .view = _instance->view_matrix,
+                .proj = _instance->projection_matrix,
+                .model = model,
+                .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+            };
+            MaterialUBO matubo{cmd.factors, cmd.flags};
+            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+            SDL_PushGPUFragmentUniformData(command_buffer, 1, &matubo, sizeof(MaterialUBO));
+
+            SDL_BindGPUGraphicsPipeline(render_pass, cmd.transparent ? _instance->pbr_pipeline_transparent : _instance->pbr_pipeline);
+
+            SDL_GPUTextureSamplerBinding bindings[4]{
+                {.texture = cmd.albedo, .sampler = _instance->texture_sampler},
+                {.texture = cmd.metallic_roughness, .sampler = _instance->texture_sampler},
+                {.texture = cmd.ao, .sampler = _instance->texture_sampler},
+                {.texture = cmd.emissive, .sampler = _instance->texture_sampler},
+            };
+            SDL_BindGPUFragmentSamplers(render_pass, 0, bindings, 4);
+
+            SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+            draw_calls++;
+            triangles_drawn += cmd.index_count / 3;
+        }
+    }
+
     SDL_EndGPURenderPass(render_pass);
 
     SDL_SubmitGPUCommandBuffer(command_buffer);
@@ -2015,6 +2157,7 @@ int RetroRenderer::RenderFrame()
     _instance->indexed_textured_cmds.clear();
     _instance->static_mesh_cmds.clear();
     _instance->debug_line_vertices.clear();
+    _instance->pbr_cmds.clear();
 
     return 0;
 }
