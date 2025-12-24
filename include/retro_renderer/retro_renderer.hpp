@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 struct AmbiantLightInfo
@@ -70,6 +71,20 @@ struct TexturedTriangle
 
 using TextureID = uint64_t;
 
+enum AlphaMode
+{
+    OPAQUE,
+    MASK,
+    BLEND
+};
+
+struct TextureInfo
+{
+    SDL_GPUTexture *tex;
+    AlphaMode alphaMode;
+    bool is_cubemap = false;
+};
+
 struct PBRMaterial
 {
     TextureID albedo_texture = 0;
@@ -114,9 +129,21 @@ public:
     static SDL_Window *GetWindow();
 
     // Texture Methods
-    static int LoadTexture(char *bitmap, size_t size, int w, int h, TextureID &out_id);
+    static int LoadTexture(char *bitmap, size_t size, int w, int h, TextureID &out_id, AlphaMode alpha_mode = OPAQUE);
     static int UnloadTexture(TextureID texture_id);
+    static int LoadCubeMapTexture(char *bitmaps[6], size_t sizes[6], int w, int h, TextureID &out_id);
+    static int UnloadCubeMapTexture(TextureID texture_id);
+    static int LoadHDRTexture(const float *rgba, int w, int h, TextureID &out_id);
 
+    // helpers
+    static int LoadTextureFromFile(const char *filename, TextureID &out_id);
+    static int LoadCubeMapTextureFromFiles(const char *filenames[6], TextureID &out_id);
+    static int LoadHDRTextureFromFile(const char *filename, TextureID &out_id);
+
+    // skybox Methods
+    static int DrawSkybox(TextureID cubemap_texture);
+    // skysphere Methods
+    static int DrawSkySphere(TextureID texture_2d);
     // Light Methods
     static int SetAmbiantLight(AmbiantLightInfo light_info);
     static int SetDirectionalLight(DirectionalLightInfo light_info);
@@ -139,7 +166,6 @@ public:
     static int DrawIndexedTriangleArrayModel(Vertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, const glm::mat4 *model, bool transparent = false);
     static int DrawIndexedTexturedTriangleArrayModel(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, TextureID texture, const glm::mat4 *model, bool transparent = false);
     static int DrawIndexedTexturedTriangleArrayPBR(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, const glm::mat4 *model, const PBRMaterial &material, bool transparent = false);
-
     struct Advanced
     {
         int DrawPBRTriangleArray(const std::vector<Triangle> &triangles, PBRMaterial material, bool transparent = false);
@@ -172,16 +198,26 @@ private:
     SDL_GPUShader *color_frag_shader;
     SDL_GPUShader *textured_vert_shader;
     SDL_GPUShader *textured_frag_shader;
+    SDL_GPUShader *textured_frag_shader_mask;
     SDL_GPUShader *pbr_vert_shader;
     SDL_GPUShader *pbr_frag_shader;
+    SDL_GPUShader *pbr_frag_shader_mask;
+    SDL_GPUShader *skybox_vert_shader;
+    SDL_GPUShader *skybox_frag_shader;
+    SDL_GPUShader *skysphere_vert_shader;
+    SDL_GPUShader *skysphere_frag_shader;
 
     SDL_GPUGraphicsPipeline *color_pipeline;
     SDL_GPUGraphicsPipeline *color_pipeline_transparent;
     SDL_GPUGraphicsPipeline *textured_pipeline;
     SDL_GPUGraphicsPipeline *textured_pipeline_transparent;
+    SDL_GPUGraphicsPipeline *textured_pipeline_mask;
     SDL_GPUGraphicsPipeline *line_pipeline;
     SDL_GPUGraphicsPipeline *pbr_pipeline;
     SDL_GPUGraphicsPipeline *pbr_pipeline_transparent;
+    SDL_GPUGraphicsPipeline *pbr_pipeline_mask;
+    SDL_GPUGraphicsPipeline *skybox_pipeline;
+    SDL_GPUGraphicsPipeline *skysphere_pipeline;
 
     SDL_GPUSampler *texture_sampler;
 
@@ -194,9 +230,16 @@ private:
     size_t color_index_buffer_size;
     SDL_GPUBuffer *textured_index_buffer;
     size_t textured_index_buffer_size;
-    SDL_GPUTexture *fallback_white_texture = nullptr;
-    SDL_GPUTexture *fallback_black_texture = nullptr;
-    SDL_GPUTexture *fallback_mr_texture = nullptr;
+    SDL_GPUBuffer *skysphere_vertex_buffer;
+    size_t skysphere_vertex_buffer_size;
+    SDL_GPUBuffer *skysphere_index_buffer;
+    size_t skysphere_index_buffer_size;
+    uint32_t skysphere_index_count = 0;
+    SDL_GPUBuffer *skybox_vertex_buffer;
+    size_t skybox_vertex_buffer_size;
+    TextureInfo fallback_white_texture{nullptr, OPAQUE};
+    TextureInfo fallback_black_texture{nullptr, OPAQUE};
+    TextureInfo fallback_mr_texture{nullptr, OPAQUE};
 
     // Renderer storages
 
@@ -214,10 +257,10 @@ private:
 
     // Triangles
     std::vector<Triangle> triangle_buffer;
-    std::vector<std::pair<TexturedTriangle, SDL_GPUTexture *>> textured_triangle_buffer;
+    std::vector<std::pair<TexturedTriangle, TextureInfo>> textured_triangle_buffer;
 
     std::vector<Triangle> transparent_triangle_buffer;
-    std::vector<std::pair<TexturedTriangle, SDL_GPUTexture *>> transparent_textured_triangle_buffer;
+    std::vector<std::pair<TexturedTriangle, TextureInfo>> transparent_textured_triangle_buffer;
 
     // Indexed data
     std::vector<Vertex> indexed_color_vertices;
@@ -229,7 +272,7 @@ private:
     struct IndexedCmd
     {
         bool transparent;
-        SDL_GPUTexture *texture;
+        TextureInfo texture{nullptr, OPAQUE};
         uint32_t first_index;
         uint32_t index_count;
         bool has_model;
@@ -244,17 +287,17 @@ private:
         uint32_t index_count;
         bool has_model;
         glm::mat4 model;
-        SDL_GPUTexture *albedo;
-        SDL_GPUTexture *metallic_roughness;
-        SDL_GPUTexture *ao;
-        SDL_GPUTexture *emissive;
+        TextureInfo albedo{nullptr, OPAQUE};
+        TextureInfo metallic_roughness{nullptr, OPAQUE};
+        TextureInfo ao{nullptr, OPAQUE};
+        TextureInfo emissive{nullptr, OPAQUE};
         glm::vec4 factors; // metallic, roughness, ao, emissiveStrength
         glm::ivec4 flags;  // albedo, mr, ao, emissive
     };
     std::vector<PBRIndexedCmd> pbr_cmds;
 
     // Texture
-    std::map<TextureID, SDL_GPUTexture *> texture_cache;
+    std::map<TextureID, TextureInfo> texture_cache;
 
     struct StaticMesh
     {
@@ -263,7 +306,7 @@ private:
         uint32_t index_count = 0;
         uint32_t vertex_stride = 0;
         bool textured = false;
-        SDL_GPUTexture *texture = nullptr;
+        TextureInfo texture{nullptr, OPAQUE};
     };
 
     struct StaticMeshCmd
@@ -275,4 +318,16 @@ private:
 
     std::vector<StaticMesh> static_meshes;
     std::vector<StaticMeshCmd> static_mesh_cmds;
+
+    struct SkyboxCmd
+    {
+        TextureInfo cubemap_texture{nullptr, OPAQUE};
+    };
+    SkyboxCmd skybox_cmd;
+
+    struct SkySphereCmd
+    {
+        TextureInfo texture{nullptr, OPAQUE};
+    };
+    SkySphereCmd skysphere_cmd;
 };

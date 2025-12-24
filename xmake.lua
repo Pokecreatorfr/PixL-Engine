@@ -23,8 +23,8 @@ add_requires("fastgltf")
 target("shaders")
     set_kind("phony")
     before_build(function ()
-        local vertShaders = os.files("ressources/shaders/*.vert")
-        local fragShaders = os.files("ressources/shaders/*.frag")
+        local vertShaders = os.files("shaders/*.vert")
+        local fragShaders = os.files("shaders/*.frag")
         local shader_files = table.join(vertShaders, fragShaders)
 
         local compiled_dir = "build/shaders"
@@ -53,3 +53,16 @@ target("PixL-Engine")
 
     add_deps("shaders")
     
+target("PixL-Engine-example")
+    set_kind("binary")
+
+    add_cflags("-fopenmp", {force = true})
+    add_cxxflags("-fopenmp", {force = true})
+    add_ldflags("-fopenmp", {force = true})
+
+
+    add_includedirs("include", "example_ressources/ressource_code/include")
+    add_files("src/**.cpp" , "example_ressources/ressource_code/src/**.cpp")
+    add_packages("libsdl3", "glm" , "imgui", "stb" , "fastgltf")
+
+    add_deps("shaders")

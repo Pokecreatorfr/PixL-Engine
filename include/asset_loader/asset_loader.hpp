@@ -3,10 +3,18 @@
 #include <vector>
 
 #include <fastgltf/core.hpp>
-#include <retro_renderer/retro_renderer.hpp>
 #include <glm/vec3.hpp>
+#include <retro_renderer/retro_renderer.hpp>
 
 int loadImageFromFile(const char *filename, char *data, size_t dataSize, int &width, int &height);
+int loadHDRImageFromFile(const char *filename, std::vector<float> &outRGBA, int &width, int &height);
+
+enum class MaterialAlphaMode
+{
+    OPAQUE,
+    MASK,
+    BLEND
+};
 
 struct LoadedPrimitive
 {
@@ -18,6 +26,8 @@ struct LoadedPrimitive
     TextureID texture_id = 0;
     glm::vec3 aabb_min{0.0f};
     glm::vec3 aabb_max{0.0f};
+    MaterialAlphaMode alpha_mode = MaterialAlphaMode::OPAQUE;
+    float alpha_cutoff = 0.5f;
 };
 
 int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimitive> &primitives);

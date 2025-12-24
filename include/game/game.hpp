@@ -1,5 +1,6 @@
 #pragma once
 #include <asset_loader/asset_loader.hpp>
+#include <input_handler/input_handler.hpp>
 #include <retro_renderer/retro_renderer.hpp>
 
 class Game
@@ -14,4 +15,5 @@ public:
 
 private:
     bool *running;
+    bool quit_requested;
 };

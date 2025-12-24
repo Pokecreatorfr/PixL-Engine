@@ -1,4 +1,6 @@
 #include <game/game.hpp>
+#include <iostream>
+#include <main_loop.hpp>
 
 Game *Game::_instance = nullptr;
 
@@ -14,6 +16,9 @@ int Game::Init(bool *running)
     _instance = new Game();
     _instance->running = running;
     *running = true;
+    InputHandler::Init();
+    InputHandler::Bind_QuitRequest(&_instance->quit_requested);
+    MainLoop_Init(running);
 
     return 0;
 }
@@ -21,19 +26,14 @@ int Game::Init(bool *running)
 int Game::Run()
 {
     if (_instance == nullptr)
-        return -1; // Not initialized
-
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
+        return -1;
+    InputHandler::Update();
+    if (_instance->quit_requested)
     {
-        if (event.type == SDL_EVENT_QUIT)
-        {
-            *_instance->running = false;
-        }
+        *(_instance->running) = false;
     }
 
-    RetroRenderer::BeginFrame();
-    RetroRenderer::RenderFrame();
+    MainLoop_Run();
 
     return 0;
 }
@@ -41,8 +41,9 @@ int Game::Run()
 int Game::Quit()
 {
     if (_instance == nullptr)
-        return -1; // Not initialized
+        return -1;
     RetroRenderer::Quit();
+    MainLoop_Quit();
     delete _instance;
     return 0;
 }

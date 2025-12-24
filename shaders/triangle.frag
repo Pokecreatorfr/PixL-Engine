@@ -82,7 +82,6 @@ vec3 apply_spots(vec3 n)
         vec3 spotDir = normalize(u_lights.spot_lights[i].direction_cutoff.xyz);
         float cosCut = u_lights.spot_lights[i].direction_cutoff.w;
 
-        // angle entre direction du spot et direction vers le fragment
         float cosAng = dot(normalize(-l), spotDir);
         if (cosAng < cosCut) continue;
 

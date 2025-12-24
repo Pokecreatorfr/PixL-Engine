@@ -33,6 +33,20 @@ int loadImageFromFile(const char *filename, char *data, size_t dataSize, int &wi
     return 0;
 }
 
+int loadHDRImageFromFile(const char *filename, std::vector<float> &outRGBA, int &width, int &height)
+{
+    int n = 0;
+    float *img = stbi_loadf(filename, &width, &height, &n, 4); // force RGBA
+    if (!img)
+        return -1;
+
+    const size_t pixels = (size_t)width * (size_t)height;
+    outRGBA.assign(img, img + pixels * 4);
+
+    stbi_image_free(img);
+    return 0;
+}
+
 namespace
 {
     bool extractBufferData(const fastgltf::DataSource &source, const fastgltf::Asset &asset, const std::filesystem::path &base_dir, std::vector<uint8_t> &out)
@@ -242,6 +256,8 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
                 continue;
 
             std::optional<size_t> textureIndex;
+            MaterialAlphaMode materialAlphaMode = MaterialAlphaMode::OPAQUE;
+            float materialAlphaCutoff = 0.5f;
             if (primitive.materialIndex.has_value())
             {
                 const auto &mat = asset.materials[*primitive.materialIndex];
@@ -249,9 +265,25 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
                 {
                     textureIndex = mat.pbrData.baseColorTexture->textureIndex;
                 }
+                // Extract alphaMode and alphaCutoff from material
+                switch (mat.alphaMode)
+                {
+                case fastgltf::AlphaMode::Opaque:
+                    materialAlphaMode = MaterialAlphaMode::OPAQUE;
+                    break;
+                case fastgltf::AlphaMode::Mask:
+                    materialAlphaMode = MaterialAlphaMode::MASK;
+                    materialAlphaCutoff = mat.alphaCutoff;
+                    break;
+                case fastgltf::AlphaMode::Blend:
+                    materialAlphaMode = MaterialAlphaMode::BLEND;
+                    break;
+                }
             }
 
             LoadedPrimitive part;
+            part.alpha_mode = materialAlphaMode;
+            part.alpha_cutoff = materialAlphaCutoff;
             part.vertices.resize(positions.size());
             for (size_t i = 0; i < positions.size(); ++i)
             {
