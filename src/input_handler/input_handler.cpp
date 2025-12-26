@@ -1,4 +1,5 @@
 #include <input_handler/input_handler.hpp>
+#include <iostream>
 
 InputHandler::InputHandler() {};
 
@@ -6,6 +7,7 @@ InputHandler *InputHandler::_instance = nullptr;
 
 std::map<SDL_Keycode, bool *> InputHandler::keycode_bindings;
 bool *InputHandler::quit_requested = nullptr;
+bool InputHandler::update_screen_ratio = false;
 
 int InputHandler::Init()
 {
@@ -45,6 +47,13 @@ int InputHandler::Update()
         {
             *quit_requested = true;
         }
+        else if (update_screen_ratio && event.type == SDL_EVENT_WINDOW_RESIZED)
+        {
+            int w = event.display.data1;
+            int h = event.display.data2;
+            Camera::SetAspect(static_cast<float>(w) / static_cast<float>(h));
+            std::cout << "Updated camera aspect ratio to " << static_cast<float>(w) / static_cast<float>(h) << " due to window resize." << std::endl;
+        }
     }
     return 0;
 }
@@ -77,5 +86,45 @@ int InputHandler::Bind_QuitRequest(bool *state)
     if (_instance == nullptr)
         return -1;
     quit_requested = state;
+    return 0;
+}
+
+int InputHandler::Bind_UpdateScreenRatio()
+{
+    if (_instance == nullptr)
+        return -1;
+    int errc = Camera::Init();
+    if (errc != 0 && errc != -1)
+        return -2;
+    update_screen_ratio = true;
+    return 0;
+}
+
+int InputHandler::Unbind_KeyCode(SDL_Keycode keycode)
+{
+    if (_instance == nullptr)
+        return -1;
+    auto it = keycode_bindings.find(keycode);
+    if (it != keycode_bindings.end())
+    {
+        keycode_bindings.erase(it);
+        return 0;
+    }
+    return 1; // Keycode was not bound
+}
+
+int InputHandler::Unbind_QuitRequest()
+{
+    if (_instance == nullptr)
+        return -1;
+    quit_requested = nullptr;
+    return 0;
+}
+
+int InputHandler::Unbind_UpdateScreenRatio()
+{
+    if (_instance == nullptr)
+        return -1;
+    update_screen_ratio = false;
     return 0;
 }
