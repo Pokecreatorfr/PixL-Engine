@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 enum class CameraType
 {
@@ -55,6 +56,7 @@ private:
     glm::vec3 _position = glm::vec3(0.0f, 0.0f, 3.0f);
     float _yawDeg = -90.0f;
     float _pitchDeg = 0.0f;
+    glm::quat _orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
     glm::vec3 _forward = glm::vec3(0, 0, -1);
     glm::vec3 _right = glm::vec3(1, 0, 0);

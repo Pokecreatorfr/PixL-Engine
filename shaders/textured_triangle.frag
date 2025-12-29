@@ -9,7 +9,7 @@ layout(location = 0) out vec4 out_color;
 
 layout(set = 2, binding = 0) uniform sampler2D u_texture;
 
-// Alpha mode control (0=OPAQUE, 1=MASK, 2=BLEND)
+
 
 struct PointLightUBO
 {

@@ -7,10 +7,10 @@ layout(location = 3) in vec4 v_color;
 
 layout(location = 0) out vec4 out_color;
 
-layout(set = 2, binding = 0) uniform sampler2D u_albedo;   // sRGB
-layout(set = 2, binding = 1) uniform sampler2D u_normal;   // linear
-layout(set = 2, binding = 2) uniform sampler2D u_orm;      // linear: R=AO, G=Rough, B=Metal
-layout(set = 2, binding = 3) uniform sampler2D u_emissive; // sRGB
+layout(set = 2, binding = 0) uniform sampler2D u_albedo;  
+layout(set = 2, binding = 1) uniform sampler2D u_normal;  
+layout(set = 2, binding = 2) uniform sampler2D u_orm;     
+layout(set = 2, binding = 3) uniform sampler2D u_emissive; 
 
 struct PointLightUBO {
     vec4 color_intensity;

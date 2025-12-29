@@ -92,7 +92,7 @@ struct PBRMaterial
     TextureID metallic_roughness_texture = 0;
     TextureID ao_texture = 0;
     TextureID emissive_texture = 0;
-    float metallic_factor = 0.0f; // fallback when no metallic map
+    float metallic_factor = 0.0f; 
     float roughness_factor = 1.0f;
     float ao_factor = 1.0f;
     float emissive_strength = 0.0f;
@@ -124,27 +124,27 @@ public:
     static int Init(int width, int height, std::string window_title);
     static int Quit();
 
-    // SDL
+    
     static SDL_GPUDevice *GetGPUDevice();
     static SDL_Window *GetWindow();
 
-    // Texture Methods
+    
     static int LoadTexture(char *bitmap, size_t size, int w, int h, TextureID &out_id, AlphaMode alpha_mode = OPAQUE);
     static int UnloadTexture(TextureID texture_id);
     static int LoadCubeMapTexture(char *bitmaps[6], size_t sizes[6], int w, int h, TextureID &out_id);
     static int UnloadCubeMapTexture(TextureID texture_id);
     static int LoadHDRTexture(const float *rgba, int w, int h, TextureID &out_id);
 
-    // helpers
+    
     static int LoadTextureFromFile(const char *filename, TextureID &out_id);
     static int LoadCubeMapTextureFromFiles(const char *filenames[6], TextureID &out_id);
     static int LoadHDRTextureFromFile(const char *filename, TextureID &out_id);
 
-    // skybox Methods
+    
     static int DrawSkybox(TextureID cubemap_texture);
-    // skysphere Methods
+    
     static int DrawSkySphere(TextureID texture_2d);
-    // Light Methods
+    
     static int SetAmbiantLight(AmbiantLightInfo light_info);
     static int SetDirectionalLight(DirectionalLightInfo light_info);
     static int SetPointLight(PointLightInfo light_info, uint8_t index = 0);
@@ -152,13 +152,13 @@ public:
     static int DisableDirectionalLight();
     static int ClearPointLights();
     static int ClearSpotLights();
-    // Frame lifecycle
+    
     static int BeginFrame();
-    // Matrix Methods
+    
     static int SetViewMatrix(glm::mat4 view);
     static int SetProjectionMatrix(glm::mat4 projection);
     static int SetModelMatrix(glm::mat4 model);
-    // Drawing Methods
+    
     static int DrawTriangleArray(Triangle *triangles, size_t triangle_count, bool transparent = false);
     static int DrawTexturedTriangleArray(TexturedTriangle *triangles, size_t triangle_count, TextureID texture, bool transparent = false);
     static int DrawIndexedTriangleArray(Vertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, bool transparent = false);
@@ -172,13 +172,37 @@ public:
         int DrawPBRTexturedTriangleArray(const std::vector<TexturedTriangle> &triangles, PBRMaterial material, bool transparent = false);
     };
 
-    // GPU-resident meshes
+    
     static int RegisterIndexedTriangleMesh(Vertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, int &out_handle);
     static int RegisterIndexedTexturedTriangleMesh(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, TextureID texture, int &out_handle);
+    static int RegisterIndexedTexturedTriangleMeshPBR(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, const PBRMaterial &material, int &out_handle);
     static int UnregisterMesh(int handle);
+    static int UnregisterPBRMesh(int handle);
     static int DrawRegisteredMesh(int handle, const glm::mat4 *model, bool transparent = false);
+    static int DrawRegisteredMeshPBR(int handle, const glm::mat4 *model, bool transparent = false);
     static int DrawDebugLines(const std::vector<glm::vec3> &points, const std::vector<uint32_t> &indices, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
     static int RenderFrame();
+
+    
+    enum class DebugViewMode
+    {
+        Final = 0,       
+        GBufferPosition, 
+        GBufferNormal,   
+        GBufferAlbedo,   
+        GBufferMaterial, 
+        GBufferEmissive, 
+        Depth,           
+        COUNT
+    };
+
+    static void Debug_SetViewMode(DebugViewMode mode);
+    static DebugViewMode Debug_GetViewMode();
+    static const char *Debug_GetViewModeName(DebugViewMode mode);
+    static void Debug_SetDepthRange(float near_plane, float far_plane);
+
+    static void SetShadowsEnabled(bool enabled);
+    static bool GetShadowsEnabled();
 
 private:
     SDL_GPUDevice *gpu;
@@ -189,6 +213,15 @@ private:
     SDL_GPUTextureFormat color_format;
     Uint32 depth_width;
     Uint32 depth_height;
+
+    
+    SDL_GPUTexture *gbuffer_position = nullptr; 
+    SDL_GPUTexture *gbuffer_normal = nullptr;   
+    SDL_GPUTexture *gbuffer_albedo = nullptr;   
+    SDL_GPUTexture *gbuffer_material = nullptr; 
+    SDL_GPUTexture *gbuffer_emissive = nullptr; 
+    Uint32 gbuffer_width = 0;
+    Uint32 gbuffer_height = 0;
     SDL_GPUCommandBuffer *frame_command_buffer = nullptr;
     SDL_GPURenderPass *frame_render_pass = nullptr;
     SDL_GPUTexture *frame_swapchain_texture = nullptr;
@@ -207,6 +240,13 @@ private:
     SDL_GPUShader *skysphere_vert_shader;
     SDL_GPUShader *skysphere_frag_shader;
 
+    
+    SDL_GPUShader *gbuffer_vert_shader = nullptr;
+    SDL_GPUShader *gbuffer_frag_shader = nullptr;
+    SDL_GPUShader *gbuffer_frag_shader_mask = nullptr;
+    SDL_GPUShader *deferred_vert_shader = nullptr;
+    SDL_GPUShader *deferred_frag_shader = nullptr;
+
     SDL_GPUGraphicsPipeline *color_pipeline;
     SDL_GPUGraphicsPipeline *color_pipeline_transparent;
     SDL_GPUGraphicsPipeline *textured_pipeline;
@@ -218,6 +258,28 @@ private:
     SDL_GPUGraphicsPipeline *pbr_pipeline_mask;
     SDL_GPUGraphicsPipeline *skybox_pipeline;
     SDL_GPUGraphicsPipeline *skysphere_pipeline;
+
+    
+    SDL_GPUGraphicsPipeline *gbuffer_pipeline = nullptr;           
+    SDL_GPUGraphicsPipeline *gbuffer_pipeline_mask = nullptr;      
+    SDL_GPUGraphicsPipeline *deferred_lighting_pipeline = nullptr; 
+
+    
+    SDL_GPUShader *debug_view_frag_shader = nullptr;
+    SDL_GPUGraphicsPipeline *debug_view_pipeline = nullptr;
+    DebugViewMode debug_view_mode = DebugViewMode::Final;
+    float debug_depth_near = 1.0f;
+    float debug_depth_far = 5000.0f;
+
+    
+    SDL_GPUTexture *shadow_map_dir = nullptr;  
+    SDL_GPUTexture *shadow_map_spot = nullptr; 
+    SDL_GPUShader *shadow_vert_shader = nullptr;
+    SDL_GPUShader *shadow_frag_shader = nullptr;
+    SDL_GPUGraphicsPipeline *shadow_pipeline = nullptr;
+    SDL_GPUSampler *shadow_sampler = nullptr;
+    static const Uint32 SHADOW_MAP_SIZE = 8192;
+    bool shadows_enabled = true;
 
     SDL_GPUSampler *texture_sampler;
 
@@ -240,10 +302,9 @@ private:
     TextureInfo fallback_white_texture{nullptr, OPAQUE};
     TextureInfo fallback_black_texture{nullptr, OPAQUE};
     TextureInfo fallback_mr_texture{nullptr, OPAQUE};
+    TextureInfo fallback_normal_texture{nullptr, OPAQUE};
 
-    // Renderer storages
-
-    // Lights
+    
     AmbiantLightInfo ambiant_light;
     DirectionalLightInfo directional_light;
     bool directional_light_enabled;
@@ -255,14 +316,14 @@ private:
     glm::mat4 projection_matrix;
     glm::mat4 model_matrix;
 
-    // Triangles
+    
     std::vector<Triangle> triangle_buffer;
     std::vector<std::pair<TexturedTriangle, TextureInfo>> textured_triangle_buffer;
 
     std::vector<Triangle> transparent_triangle_buffer;
     std::vector<std::pair<TexturedTriangle, TextureInfo>> transparent_textured_triangle_buffer;
 
-    // Indexed data
+    
     std::vector<Vertex> indexed_color_vertices;
     std::vector<uint32_t> indexed_color_indices;
     std::vector<TexturedVertex> indexed_textured_vertices;
@@ -288,15 +349,17 @@ private:
         bool has_model;
         glm::mat4 model;
         TextureInfo albedo{nullptr, OPAQUE};
+        TextureInfo normal{nullptr, OPAQUE};
         TextureInfo metallic_roughness{nullptr, OPAQUE};
         TextureInfo ao{nullptr, OPAQUE};
         TextureInfo emissive{nullptr, OPAQUE};
-        glm::vec4 factors; // metallic, roughness, ao, emissiveStrength
-        glm::ivec4 flags;  // albedo, mr, ao, emissive
+        glm::vec4 factors; 
+        glm::ivec4 flags;  
+        int has_normal_map = 0;
     };
     std::vector<PBRIndexedCmd> pbr_cmds;
 
-    // Texture
+    
     std::map<TextureID, TextureInfo> texture_cache;
 
     struct StaticMesh
@@ -318,6 +381,32 @@ private:
 
     std::vector<StaticMesh> static_meshes;
     std::vector<StaticMeshCmd> static_mesh_cmds;
+
+    
+    struct StaticPBRMesh
+    {
+        SDL_GPUBuffer *vertex_buffer = nullptr;
+        SDL_GPUBuffer *index_buffer = nullptr;
+        uint32_t index_count = 0;
+        TextureInfo albedo{nullptr, OPAQUE};
+        TextureInfo normal{nullptr, OPAQUE};
+        TextureInfo metallic_roughness{nullptr, OPAQUE};
+        TextureInfo ao{nullptr, OPAQUE};
+        TextureInfo emissive{nullptr, OPAQUE};
+        glm::vec4 factors{0.0f, 1.0f, 1.0f, 0.0f}; 
+        glm::ivec4 flags{0, 0, 0, 0};              
+        int has_normal_map = 0;
+    };
+
+    struct StaticPBRMeshCmd
+    {
+        int handle = -1;
+        bool transparent = false;
+        glm::mat4 model{1.0f};
+    };
+
+    std::vector<StaticPBRMesh> static_pbr_meshes;
+    std::vector<StaticPBRMeshCmd> static_pbr_mesh_cmds;
 
     struct SkyboxCmd
     {

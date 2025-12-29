@@ -6,8 +6,8 @@ layout(location = 2) in vec3 in_normal;
 layout(location = 3) in vec4 in_color;
 
 layout(location = 0) out vec2 v_uv;
-layout(location = 1) out vec3 v_pos;
-layout(location = 2) out vec3 v_norm;
+layout(location = 1) out vec3 v_world_pos;
+layout(location = 2) out vec3 v_world_norm;
 layout(location = 3) out vec4 v_color;
 
 layout(std140, set = 1, binding = 0) uniform Matrices
@@ -21,8 +21,8 @@ layout(std140, set = 1, binding = 0) uniform Matrices
 void main()
 {
     vec4 world_pos = u_matrices.u_model * vec4(in_pos, 1.0);
-    v_pos = world_pos.xyz;
-    v_norm = mat3(u_matrices.u_normal) * in_normal;
+    v_world_pos = world_pos.xyz;
+    v_world_norm = mat3(u_matrices.u_normal) * in_normal;
     v_uv = in_uv;
     v_color = in_color;
     gl_Position = u_matrices.u_proj * u_matrices.u_view * world_pos;

@@ -4,12 +4,18 @@
 #include <cmath>
 #include <fstream>
 #include <glm/gtc/constants.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <limits>
 #include <map>
 #include <retro_renderer/retro_renderer.hpp>
 #include <stb_image.h>
 #include <vector>
+
+
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
+#include <imgui_impl_sdlgpu3.h>
 
 RetroRenderer::RetroRenderer()
     : gpu(nullptr),
@@ -105,9 +111,14 @@ struct alignas(16) LightsUBO
     glm::vec4 ambient_light;
     glm::vec4 directional_color_intensity;
     glm::vec4 directional_direction;
-    glm::ivec4 counts; // x: directional_enabled, y: point_count, z: spot_count
+    glm::ivec4 counts; 
     std::array<PointLightUBO, 16> point_lights;
     std::array<SpotLightUBO, 16> spot_lights;
+    glm::vec4 camera_world_pos;     
+    glm::mat4 light_view_proj_dir;  
+    glm::mat4 light_view_proj_spot; 
+    glm::mat4 inv_view_proj;        
+    glm::vec4 screen_params;        
 };
 
 static bool ReadFile(const std::string &path, std::vector<Uint8> &out)
@@ -181,6 +192,255 @@ static SDL_GPUColorTargetBlendState MakeBlendState(bool enable_blend)
     blend.enable_blend = enable_blend;
     blend.enable_color_write_mask = true;
     return blend;
+}
+
+
+
+static const SDL_GPUTextureFormat GBUFFER_NORMAL_FORMAT = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
+static const SDL_GPUTextureFormat GBUFFER_ALBEDO_FORMAT = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+static const SDL_GPUTextureFormat GBUFFER_MATERIAL_FORMAT = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+static const SDL_GPUTextureFormat GBUFFER_EMISSIVE_FORMAT = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+
+
+static SDL_GPUGraphicsPipeline *CreateGBufferPipeline(SDL_GPUDevice *gpu,
+                                                      SDL_GPUShader *vert,
+                                                      SDL_GPUShader *frag,
+                                                      const SDL_GPUVertexBufferDescription &vb_desc,
+                                                      const std::vector<SDL_GPUVertexAttribute> &attrs,
+                                                      SDL_GPUTextureFormat depth_fmt)
+{
+    if (vert == nullptr || frag == nullptr)
+    {
+        SDL_Log("CreateGBufferPipeline: null shader (vert=%p, frag=%p)", vert, frag);
+        return nullptr;
+    }
+
+    
+    SDL_GPUColorTargetBlendState no_blend = MakeBlendState(false);
+    SDL_GPUColorTargetDescription color_targets[5] = {
+        {.format = GBUFFER_NORMAL_FORMAT, .blend_state = no_blend},   
+        {.format = GBUFFER_NORMAL_FORMAT, .blend_state = no_blend},   
+        {.format = GBUFFER_ALBEDO_FORMAT, .blend_state = no_blend},   
+        {.format = GBUFFER_MATERIAL_FORMAT, .blend_state = no_blend}, 
+        {.format = GBUFFER_EMISSIVE_FORMAT, .blend_state = no_blend}, 
+    };
+
+    SDL_GPUGraphicsPipelineTargetInfo target_info{
+        .color_target_descriptions = color_targets,
+        .num_color_targets = 5,
+        .depth_stencil_format = depth_fmt,
+        .has_depth_stencil_target = true,
+    };
+
+    SDL_GPURasterizerState raster_state{
+        .fill_mode = SDL_GPU_FILLMODE_FILL,
+        .cull_mode = SDL_GPU_CULLMODE_BACK,
+        .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+        .depth_bias_constant_factor = 0.0f,
+        .depth_bias_clamp = 0.0f,
+        .depth_bias_slope_factor = 0.0f,
+        .enable_depth_bias = false,
+        .enable_depth_clip = true,
+    };
+
+    SDL_GPUMultisampleState ms_state{
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+        .sample_mask = 0,
+        .enable_mask = false,
+    };
+
+    SDL_GPUDepthStencilState depth_state{
+        .compare_op = SDL_GPU_COMPAREOP_LESS,
+        .compare_mask = 0xFF,
+        .write_mask = 0xFF,
+        .enable_depth_test = true,
+        .enable_depth_write = true,
+        .enable_stencil_test = false,
+    };
+
+    SDL_GPUVertexInputState input_state{};
+    if (!attrs.empty())
+    {
+        input_state.vertex_buffer_descriptions = &vb_desc;
+        input_state.num_vertex_buffers = 1;
+        input_state.vertex_attributes = attrs.data();
+        input_state.num_vertex_attributes = static_cast<Uint32>(attrs.size());
+    }
+
+    SDL_GPUGraphicsPipelineCreateInfo info{
+        .vertex_shader = vert,
+        .fragment_shader = frag,
+        .vertex_input_state = input_state,
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .rasterizer_state = raster_state,
+        .multisample_state = ms_state,
+        .depth_stencil_state = depth_state,
+        .target_info = target_info,
+        .props = 0,
+    };
+
+    SDL_GPUGraphicsPipeline *pipeline = SDL_CreateGPUGraphicsPipeline(gpu, &info);
+    if (pipeline == nullptr)
+    {
+        SDL_Log("CreateGBufferPipeline failed: %s", SDL_GetError());
+    }
+    return pipeline;
+}
+
+
+static SDL_GPUGraphicsPipeline *CreateDeferredLightingPipeline(SDL_GPUDevice *gpu,
+                                                               SDL_GPUShader *vert,
+                                                               SDL_GPUShader *frag,
+                                                               SDL_GPUTextureFormat color_fmt,
+                                                               SDL_GPUTextureFormat depth_fmt)
+{
+    if (vert == nullptr || frag == nullptr)
+    {
+        SDL_Log("CreateDeferredLightingPipeline: null shader (vert=%p, frag=%p)", vert, frag);
+        return nullptr;
+    }
+
+    SDL_GPUColorTargetBlendState blend = MakeBlendState(false);
+    SDL_GPUColorTargetDescription color_target{
+        .format = color_fmt,
+        .blend_state = blend,
+    };
+
+    SDL_GPUGraphicsPipelineTargetInfo target_info{
+        .color_target_descriptions = &color_target,
+        .num_color_targets = 1,
+        .depth_stencil_format = depth_fmt,
+        .has_depth_stencil_target = true,
+    };
+
+    SDL_GPURasterizerState raster_state{
+        .fill_mode = SDL_GPU_FILLMODE_FILL,
+        .cull_mode = SDL_GPU_CULLMODE_NONE, 
+        .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+        .depth_bias_constant_factor = 0.0f,
+        .depth_bias_clamp = 0.0f,
+        .depth_bias_slope_factor = 0.0f,
+        .enable_depth_bias = false,
+        .enable_depth_clip = false,
+    };
+
+    SDL_GPUMultisampleState ms_state{
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+        .sample_mask = 0,
+        .enable_mask = false,
+    };
+
+    
+    SDL_GPUDepthStencilState depth_state{
+        .compare_op = SDL_GPU_COMPAREOP_ALWAYS,
+        .compare_mask = 0,
+        .write_mask = 0,
+        .enable_depth_test = false,
+        .enable_depth_write = false,
+        .enable_stencil_test = false,
+    };
+
+    
+    SDL_GPUVertexInputState input_state{
+        .vertex_buffer_descriptions = nullptr,
+        .num_vertex_buffers = 0,
+        .vertex_attributes = nullptr,
+        .num_vertex_attributes = 0,
+    };
+
+    SDL_GPUGraphicsPipelineCreateInfo info{
+        .vertex_shader = vert,
+        .fragment_shader = frag,
+        .vertex_input_state = input_state,
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .rasterizer_state = raster_state,
+        .multisample_state = ms_state,
+        .depth_stencil_state = depth_state,
+        .target_info = target_info,
+        .props = 0,
+    };
+
+    SDL_GPUGraphicsPipeline *pipeline = SDL_CreateGPUGraphicsPipeline(gpu, &info);
+    if (pipeline == nullptr)
+    {
+        SDL_Log("CreateDeferredLightingPipeline failed: %s", SDL_GetError());
+    }
+    return pipeline;
+}
+
+
+static SDL_GPUGraphicsPipeline *CreateShadowPipeline(SDL_GPUDevice *gpu,
+                                                     SDL_GPUShader *vert,
+                                                     SDL_GPUShader *frag,
+                                                     const SDL_GPUVertexBufferDescription &vb_desc,
+                                                     const std::vector<SDL_GPUVertexAttribute> &attrs,
+                                                     SDL_GPUTextureFormat depth_fmt)
+{
+    if (vert == nullptr || frag == nullptr)
+    {
+        SDL_Log("CreateShadowPipeline: null shader (vert=%p, frag=%p)", vert, frag);
+        return nullptr;
+    }
+
+    
+    SDL_GPUGraphicsPipelineTargetInfo target_info{
+        .color_target_descriptions = nullptr,
+        .num_color_targets = 0,
+        .depth_stencil_format = depth_fmt,
+        .has_depth_stencil_target = true,
+    };
+
+    SDL_GPURasterizerState raster_state{
+        .fill_mode = SDL_GPU_FILLMODE_FILL,
+        .cull_mode = SDL_GPU_CULLMODE_FRONT, 
+        .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+        .depth_bias_constant_factor = 2.0f,
+        .depth_bias_clamp = 0.0f,
+        .depth_bias_slope_factor = 2.0f,
+        .enable_depth_bias = true,
+        .enable_depth_clip = true,
+    };
+
+    SDL_GPUMultisampleState ms_state{
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+        .sample_mask = 0,
+        .enable_mask = false,
+    };
+
+    SDL_GPUDepthStencilState depth_state{
+        .compare_op = SDL_GPU_COMPAREOP_LESS,
+        .compare_mask = 0xFF,
+        .write_mask = 0xFF,
+        .enable_depth_test = true,
+        .enable_depth_write = true,
+        .enable_stencil_test = false,
+    };
+
+    SDL_GPUVertexInputState input_state{
+        .vertex_buffer_descriptions = &vb_desc,
+        .num_vertex_buffers = 1,
+        .vertex_attributes = attrs.data(),
+        .num_vertex_attributes = static_cast<Uint32>(attrs.size()),
+    };
+
+    SDL_GPUGraphicsPipelineCreateInfo info{
+        .vertex_shader = vert,
+        .fragment_shader = frag,
+        .vertex_input_state = input_state,
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .rasterizer_state = raster_state,
+        .multisample_state = ms_state,
+        .depth_stencil_state = depth_state,
+        .target_info = target_info,
+        .props = 0,
+    };
+
+    SDL_GPUGraphicsPipeline *pipeline = SDL_CreateGPUGraphicsPipeline(gpu, &info);
+    if (pipeline == nullptr)
+    {
+        SDL_Log("CreateShadowPipeline failed: %s", SDL_GetError());
+    }
+    return pipeline;
 }
 
 static SDL_GPUGraphicsPipeline *CreatePipeline(SDL_GPUDevice *gpu,
@@ -398,7 +658,7 @@ static SDL_GPUTexture *CreateCubeMapTextureFromSurfaces(SDL_GPUDevice *gpu, SDL_
     const Uint32 texture_width = static_cast<Uint32>(rgba_surfaces[0]->w);
     const Uint32 texture_height = static_cast<Uint32>(rgba_surfaces[0]->h);
     const Uint32 pitch = static_cast<Uint32>(rgba_surfaces[0]->pitch);
-    constexpr Uint32 bytes_per_pixel = 4; // SDL_PIXELFORMAT_RGBA32
+    constexpr Uint32 bytes_per_pixel = 4; 
     const Uint32 upload_size = pitch * texture_height;
 
     const SDL_GPUTextureCreateInfo texture_info{
@@ -503,7 +763,7 @@ static SDL_GPUTexture *CreateTextureFromSurface(SDL_GPUDevice *gpu, SDL_Surface 
     const Uint32 texture_width = static_cast<Uint32>(rgba_surface->w);
     const Uint32 texture_height = static_cast<Uint32>(rgba_surface->h);
     const Uint32 pitch = static_cast<Uint32>(rgba_surface->pitch);
-    constexpr Uint32 bytes_per_pixel = 4; // SDL_PIXELFORMAT_RGBA32
+    constexpr Uint32 bytes_per_pixel = 4; 
     const Uint32 upload_size = pitch * texture_height;
 
     const SDL_GPUTextureCreateInfo texture_info{
@@ -611,7 +871,7 @@ static SDL_GPUTexture *CreateTextureFromPixels(SDL_GPUDevice *gpu, const void *p
 
     const Uint32 texture_width = static_cast<Uint32>(w);
     const Uint32 texture_height = static_cast<Uint32>(h);
-    const Uint32 pitch = texture_width * 4; // RGBA8888
+    const Uint32 pitch = texture_width * 4; 
     const Uint32 upload_size = pitch * texture_height;
 
     const SDL_GPUTextureCreateInfo texture_info{
@@ -712,7 +972,7 @@ static SDL_GPUTexture *CreateCubeMapTextureFromPixels(SDL_GPUDevice *gpu, char *
 
     const Uint32 texture_width = static_cast<Uint32>(w);
     const Uint32 texture_height = static_cast<Uint32>(h);
-    const Uint32 pitch = texture_width * 4; // RGBA8888
+    const Uint32 pitch = texture_width * 4; 
     const Uint32 upload_size = pitch * texture_height;
 
     const SDL_GPUTextureCreateInfo texture_info{
@@ -855,7 +1115,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
 
     if (SDL_Init(SDL_INIT_VIDEO) != true)
     {
-        return -2; // SDL initialization failed
+        return -2; 
     }
 
     SDL_SetHint("SDL_RENDER_VULKAN_DEBUG", "1");
@@ -869,7 +1129,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     if (window == nullptr)
     {
         SDL_Quit();
-        return -3; // Window creation failed
+        return -3; 
     }
 
     const SDL_GPUShaderFormat shader_formats =
@@ -892,7 +1152,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     {
         SDL_DestroyWindow(window);
         SDL_Quit();
-        return -4; // GPU device creation failed
+        return -4; 
     }
 
     if (!SDL_ClaimWindowForGPUDevice(gpu, window))
@@ -900,7 +1160,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
         SDL_DestroyGPUDevice(gpu);
         SDL_DestroyWindow(window);
         SDL_Quit();
-        return -5; // Failed to claim window for GPU
+        return -5; 
     }
 
     _instance = new RetroRenderer();
@@ -910,20 +1170,20 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
 
     SDL_SetGPUSwapchainParameters(gpu, window, comp, SDL_GPU_PRESENTMODE_IMMEDIATE);
 
-    // Create rendering resources
+    
     _instance->color_format = SDL_GetGPUSwapchainTextureFormat(gpu, window);
     _instance->depth_format = ChooseDepthFormat(gpu);
     if (_instance->depth_format == SDL_GPU_TEXTUREFORMAT_INVALID)
     {
         Quit();
-        return -6; // Depth format unsupported
+        return -6; 
     }
 
     int window_w = width;
     int window_h = height;
     SDL_GetWindowSizeInPixels(window, &window_w, &window_h);
 
-    // Depth texture
+    
     SDL_GPUTextureCreateInfo depth_info{
         .type = SDL_GPU_TEXTURETYPE_2D,
         .format = _instance->depth_format,
@@ -940,12 +1200,12 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     {
         SDL_Log("Failed to create depth texture: %s", SDL_GetError());
         Quit();
-        return -7; // Depth texture creation failed
+        return -7; 
     }
     _instance->depth_width = static_cast<Uint32>(window_w);
     _instance->depth_height = static_cast<Uint32>(window_h);
 
-    // Sampler
+    
     SDL_GPUSamplerCreateInfo sampler_info{
         .min_filter = SDL_GPU_FILTER_LINEAR,
         .mag_filter = SDL_GPU_FILTER_LINEAR,
@@ -967,13 +1227,15 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     {
         SDL_Log("Failed to create sampler: %s", SDL_GetError());
         Quit();
-        return -8; // Sampler creation failed
+        return -8; 
     }
 
     _instance->fallback_white_texture = TextureInfo{CreateSolidTexture(gpu, 255, 255, 255, 255), OPAQUE};
     _instance->fallback_black_texture = TextureInfo{CreateSolidTexture(gpu, 0, 0, 0, 255), OPAQUE};
-    _instance->fallback_mr_texture = TextureInfo{CreateSolidTexture(gpu, 255, 255, 0, 255), OPAQUE}; // occlusion=1, rough=1, metal=0
-    if (_instance->fallback_white_texture.tex == nullptr || _instance->fallback_black_texture.tex == nullptr || _instance->fallback_mr_texture.tex == nullptr)
+    _instance->fallback_mr_texture = TextureInfo{CreateSolidTexture(gpu, 255, 255, 0, 255), OPAQUE};       
+    _instance->fallback_normal_texture = TextureInfo{CreateSolidTexture(gpu, 128, 128, 255, 255), OPAQUE}; 
+    if (_instance->fallback_white_texture.tex == nullptr || _instance->fallback_black_texture.tex == nullptr ||
+        _instance->fallback_mr_texture.tex == nullptr || _instance->fallback_normal_texture.tex == nullptr)
     {
         SDL_Log("Failed to create fallback textures");
         Quit();
@@ -984,7 +1246,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     const char *base_path = SDL_GetBasePath();
     if (base_path != nullptr)
     {
-        // Executable is in build/mingw/x86_64/debug, shaders are in build/shaders relative to repo root.
+        
         shader_dir = std::string(base_path) + "..\\..\\..\\shaders\\";
         SDL_free(const_cast<char *>(base_path));
     }
@@ -1002,10 +1264,25 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     _instance->skysphere_vert_shader = CreateShader(gpu, shader_dir + "skysphere.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0);
     _instance->skysphere_frag_shader = CreateShader(gpu, shader_dir + "skysphere.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 1);
 
+    
+    
+    
+    _instance->gbuffer_vert_shader = CreateShader(gpu, shader_dir + "gbuffer.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 1);
+    _instance->gbuffer_frag_shader = CreateShader(gpu, shader_dir + "gbuffer.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 4, 1);
+    _instance->gbuffer_frag_shader_mask = CreateShader(gpu, shader_dir + "gbuffer_mask.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 4, 1);
+    
+    _instance->deferred_vert_shader = CreateShader(gpu, shader_dir + "deferred.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0);
+    _instance->deferred_frag_shader = CreateShader(gpu, shader_dir + "deferred.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 8, 1);
+    
+    _instance->debug_view_frag_shader = CreateShader(gpu, shader_dir + "debug_view.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 6, 1);
+    
+    _instance->shadow_vert_shader = CreateShader(gpu, shader_dir + "shadow.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, 0, 1);
+    _instance->shadow_frag_shader = CreateShader(gpu, shader_dir + "shadow.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0);
+
     if (_instance->color_vert_shader == nullptr || _instance->color_frag_shader == nullptr || _instance->textured_vert_shader == nullptr || _instance->textured_frag_shader == nullptr || _instance->textured_frag_shader_mask == nullptr || _instance->pbr_vert_shader == nullptr || _instance->pbr_frag_shader == nullptr || _instance->pbr_frag_shader_mask == nullptr || _instance->skybox_vert_shader == nullptr || _instance->skybox_frag_shader == nullptr || _instance->skysphere_vert_shader == nullptr || _instance->skysphere_frag_shader == nullptr)
     {
         Quit();
-        return -9; // Shader creation failed
+        return -9; 
     }
 
     SDL_GPUVertexBufferDescription vb_color{
@@ -1060,6 +1337,50 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     _instance->skybox_pipeline = CreatePipeline(gpu, _instance->skybox_vert_shader, _instance->skybox_frag_shader, vb_skybox, attrs_skybox, _instance->color_format, _instance->depth_format, false, SDL_GPU_COMPAREOP_LESS_OR_EQUAL, true, false, need_depth, SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, SDL_GPU_CULLMODE_FRONT);
     _instance->skysphere_pipeline = CreatePipeline(gpu, _instance->skysphere_vert_shader, _instance->skysphere_frag_shader, vb_skybox, attrs_none, _instance->color_format, _instance->depth_format, false, SDL_GPU_COMPAREOP_LESS_OR_EQUAL, true, false, need_depth, SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, SDL_GPU_CULLMODE_NONE);
 
+    
+    if (_instance->gbuffer_vert_shader != nullptr && _instance->gbuffer_frag_shader != nullptr)
+    {
+        _instance->gbuffer_pipeline = CreateGBufferPipeline(gpu, _instance->gbuffer_vert_shader, _instance->gbuffer_frag_shader, vb_tex, attrs_tex, _instance->depth_format);
+        _instance->gbuffer_pipeline_mask = CreateGBufferPipeline(gpu, _instance->gbuffer_vert_shader, _instance->gbuffer_frag_shader_mask, vb_tex, attrs_tex, _instance->depth_format);
+    }
+    
+    if (_instance->shadow_vert_shader != nullptr && _instance->shadow_frag_shader != nullptr)
+    {
+        _instance->shadow_pipeline = CreateShadowPipeline(gpu, _instance->shadow_vert_shader, _instance->shadow_frag_shader, vb_tex, attrs_tex, SDL_GPU_TEXTUREFORMAT_D32_FLOAT);
+        if (_instance->shadow_pipeline != nullptr)
+        {
+            SDL_Log("Shadow pipeline created");
+            _instance->shadows_enabled = true;
+        }
+        else
+        {
+            SDL_Log("Shadow pipeline creation failed");
+        }
+    }
+    if (_instance->deferred_vert_shader != nullptr && _instance->deferred_frag_shader != nullptr)
+    {
+        _instance->deferred_lighting_pipeline = CreateDeferredLightingPipeline(gpu, _instance->deferred_vert_shader, _instance->deferred_frag_shader, _instance->color_format, _instance->depth_format);
+    }
+    
+    if (_instance->deferred_vert_shader != nullptr && _instance->debug_view_frag_shader != nullptr)
+    {
+        _instance->debug_view_pipeline = CreateDeferredLightingPipeline(gpu, _instance->deferred_vert_shader, _instance->debug_view_frag_shader, _instance->color_format, _instance->depth_format);
+        if (_instance->debug_view_pipeline != nullptr)
+        {
+            SDL_Log("Debug view pipeline created");
+        }
+    }
+
+    
+    if (_instance->gbuffer_pipeline != nullptr && _instance->deferred_lighting_pipeline != nullptr)
+    {
+        SDL_Log("Deferred rendering enabled");
+    }
+    else
+    {
+        SDL_Log("Deferred rendering disabled (shader compilation failed or shaders not found)");
+    }
+
     if (_instance->color_pipeline == nullptr || _instance->color_pipeline_transparent == nullptr || _instance->textured_pipeline == nullptr || _instance->textured_pipeline_transparent == nullptr || _instance->line_pipeline == nullptr || _instance->pbr_pipeline == nullptr || _instance->pbr_pipeline_transparent == nullptr || _instance->skybox_pipeline == nullptr || _instance->skysphere_pipeline == nullptr)
     {
         SDL_Log("Pipeline creation failed: color=%p color_transparent=%p tex=%p tex_trans=%p skybox=%p skysphere=%p",
@@ -1070,7 +1391,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
                 _instance->skybox_pipeline,
                 _instance->skysphere_pipeline);
         Quit();
-        return -10; // Pipeline creation failed
+        return -10; 
     }
 
     const size_t color_buffer_size = MAX_TRIANGLES_PER_BATCH * 3 * sizeof(Vertex);
@@ -1083,12 +1404,12 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
         !EnsureBufferWithUsage(gpu, _instance->textured_index_buffer, _instance->textured_index_buffer_size, textured_index_size, SDL_GPU_BUFFERUSAGE_INDEX))
     {
         Quit();
-        return -11; // Vertex buffer creation failed
+        return -11; 
     }
 
-    // Create skybox cube vertices
+    
     float skybox_vertices[] = {
-        // positions (cube centered at origin)
+        
         -1.0f, 1.0f, -1.0f,
         -1.0f, -1.0f, -1.0f,
         1.0f, -1.0f, -1.0f,
@@ -1135,7 +1456,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     if (!EnsureBufferWithUsage(gpu, _instance->skybox_vertex_buffer, _instance->skybox_vertex_buffer_size, skybox_buffer_size, SDL_GPU_BUFFERUSAGE_VERTEX))
     {
         Quit();
-        return -11; // Skybox vertex buffer creation failed
+        return -11; 
     }
 
     SDL_GPUTransferBufferCreateInfo skybox_transfer_info{
@@ -1146,7 +1467,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     if (skybox_transfer == nullptr)
     {
         Quit();
-        return -11; // Skybox transfer buffer creation failed
+        return -11; 
     }
 
     void *skybox_data = SDL_MapGPUTransferBuffer(gpu, skybox_transfer, false);
@@ -1154,7 +1475,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     {
         SDL_ReleaseGPUTransferBuffer(gpu, skybox_transfer);
         Quit();
-        return -11; // Skybox transfer buffer mapping failed
+        return -11; 
     }
     std::memcpy(skybox_data, skybox_vertices, skybox_buffer_size);
     SDL_UnmapGPUTransferBuffer(gpu, skybox_transfer);
@@ -1175,10 +1496,10 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     SDL_SubmitGPUCommandBuffer(upload_cmd);
     SDL_ReleaseGPUTransferBuffer(gpu, skybox_transfer);
 
-    // Create skysphere mesh (UV sphere)
+    
     auto generate_sphere = [](int slices, int stacks, std::vector<float> &verts, std::vector<uint32_t> &indices)
     {
-        const float radius = 1.0f; // Unit radius is enough; view translation is removed at draw time
+        const float radius = 1.0f; 
         verts.clear();
         indices.clear();
         verts.reserve((stacks + 1) * (slices + 1) * 3);
@@ -1235,7 +1556,7 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
         !EnsureBufferWithUsage(gpu, _instance->skysphere_index_buffer, _instance->skysphere_index_buffer_size, skysphere_ib_size, SDL_GPU_BUFFERUSAGE_INDEX))
     {
         Quit();
-        return -11; // Skysphere buffer creation failed
+        return -11; 
     }
 
     SDL_GPUCommandBuffer *sphere_cmd = SDL_AcquireGPUCommandBuffer(gpu);
@@ -1253,6 +1574,26 @@ int RetroRenderer::Init(int width, int height, std::string window_title)
     }
     SDL_SubmitGPUCommandBuffer(sphere_cmd);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+    
+    ImGui::StyleColorsDark();
+
+    
+    ImGui_ImplSDL3_InitForOther(_instance->window);
+
+    ImGui_ImplSDLGPU3_InitInfo imgui_init_info = {};
+    imgui_init_info.Device = _instance->gpu;
+    imgui_init_info.ColorTargetFormat = _instance->color_format;
+    imgui_init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
+    ImGui_ImplSDLGPU3_Init(&imgui_init_info);
+
+    SDL_Log("ImGui initialized successfully");
+
     return 0;
 }
 
@@ -1260,6 +1601,11 @@ int RetroRenderer::Quit()
 {
     if (_instance == nullptr)
         return -1;
+
+    
+    ImGui_ImplSDLGPU3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
 
     for (auto &entry : _instance->texture_cache)
     {
@@ -1324,6 +1670,16 @@ int RetroRenderer::Quit()
     if (_instance->skysphere_pipeline)
         SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->skysphere_pipeline);
 
+    
+    if (_instance->gbuffer_pipeline)
+        SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->gbuffer_pipeline);
+    if (_instance->gbuffer_pipeline_mask)
+        SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->gbuffer_pipeline_mask);
+    if (_instance->deferred_lighting_pipeline)
+        SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->deferred_lighting_pipeline);
+    if (_instance->debug_view_pipeline)
+        SDL_ReleaseGPUGraphicsPipeline(_instance->gpu, _instance->debug_view_pipeline);
+
     if (_instance->color_vert_shader)
         SDL_ReleaseGPUShader(_instance->gpu, _instance->color_vert_shader);
     if (_instance->color_frag_shader)
@@ -1349,12 +1705,38 @@ int RetroRenderer::Quit()
     if (_instance->skysphere_frag_shader)
         SDL_ReleaseGPUShader(_instance->gpu, _instance->skysphere_frag_shader);
 
+    
+    if (_instance->gbuffer_vert_shader)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->gbuffer_vert_shader);
+    if (_instance->gbuffer_frag_shader)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->gbuffer_frag_shader);
+    if (_instance->gbuffer_frag_shader_mask)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->gbuffer_frag_shader_mask);
+    if (_instance->deferred_vert_shader)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->deferred_vert_shader);
+    if (_instance->deferred_frag_shader)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->deferred_frag_shader);
+    if (_instance->debug_view_frag_shader)
+        SDL_ReleaseGPUShader(_instance->gpu, _instance->debug_view_frag_shader);
+
+    
+    if (_instance->gbuffer_normal)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_normal);
+    if (_instance->gbuffer_albedo)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_albedo);
+    if (_instance->gbuffer_material)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_material);
+    if (_instance->gbuffer_emissive)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_emissive);
+
     if (_instance->fallback_white_texture.tex)
         SDL_ReleaseGPUTexture(_instance->gpu, _instance->fallback_white_texture.tex);
     if (_instance->fallback_black_texture.tex)
         SDL_ReleaseGPUTexture(_instance->gpu, _instance->fallback_black_texture.tex);
     if (_instance->fallback_mr_texture.tex)
         SDL_ReleaseGPUTexture(_instance->gpu, _instance->fallback_mr_texture.tex);
+    if (_instance->fallback_normal_texture.tex)
+        SDL_ReleaseGPUTexture(_instance->gpu, _instance->fallback_normal_texture.tex);
 
     SDL_DestroyGPUDevice(_instance->gpu);
     SDL_DestroyWindow(_instance->window);
@@ -1434,7 +1816,117 @@ int RetroRenderer::BeginFrame()
         _instance->depth_height = swap_h;
     }
 
-    // Push global uniforms before the render pass
+    
+    if (_instance->gbuffer_pipeline != nullptr &&
+        (_instance->gbuffer_position == nullptr ||
+         _instance->gbuffer_width != swap_w ||
+         _instance->gbuffer_height != swap_h))
+    {
+        
+        if (_instance->gbuffer_position)
+            SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_position);
+        if (_instance->gbuffer_normal)
+            SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_normal);
+        if (_instance->gbuffer_albedo)
+            SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_albedo);
+        if (_instance->gbuffer_material)
+            SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_material);
+        if (_instance->gbuffer_emissive)
+            SDL_ReleaseGPUTexture(_instance->gpu, _instance->gbuffer_emissive);
+
+        
+        SDL_GPUTextureCreateInfo gbuf_info{
+            .type = SDL_GPU_TEXTURETYPE_2D,
+            .format = GBUFFER_NORMAL_FORMAT,
+            .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+            .width = swap_w,
+            .height = swap_h,
+            .layer_count_or_depth = 1,
+            .num_levels = 1,
+            .sample_count = SDL_GPU_SAMPLECOUNT_1,
+            .props = 0,
+        };
+
+        
+        gbuf_info.format = GBUFFER_NORMAL_FORMAT; 
+        _instance->gbuffer_position = SDL_CreateGPUTexture(_instance->gpu, &gbuf_info);
+
+        
+        gbuf_info.format = GBUFFER_NORMAL_FORMAT;
+        _instance->gbuffer_normal = SDL_CreateGPUTexture(_instance->gpu, &gbuf_info);
+
+        
+        gbuf_info.format = GBUFFER_ALBEDO_FORMAT;
+        _instance->gbuffer_albedo = SDL_CreateGPUTexture(_instance->gpu, &gbuf_info);
+
+        
+        gbuf_info.format = GBUFFER_MATERIAL_FORMAT;
+        _instance->gbuffer_material = SDL_CreateGPUTexture(_instance->gpu, &gbuf_info);
+
+        
+        gbuf_info.format = GBUFFER_EMISSIVE_FORMAT;
+        _instance->gbuffer_emissive = SDL_CreateGPUTexture(_instance->gpu, &gbuf_info);
+
+        _instance->gbuffer_width = swap_w;
+        _instance->gbuffer_height = swap_h;
+
+        if (_instance->gbuffer_position == nullptr || _instance->gbuffer_normal == nullptr ||
+            _instance->gbuffer_albedo == nullptr || _instance->gbuffer_material == nullptr ||
+            _instance->gbuffer_emissive == nullptr)
+        {
+            SDL_Log("Failed to create G-Buffer textures: %s", SDL_GetError());
+            SDL_CancelGPUCommandBuffer(_instance->frame_command_buffer);
+            _instance->frame_command_buffer = nullptr;
+            return -4;
+        }
+    }
+
+    
+    if (_instance->shadow_map_dir == nullptr && _instance->shadow_pipeline != nullptr)
+    {
+        SDL_GPUTextureCreateInfo shadow_info{
+            .type = SDL_GPU_TEXTURETYPE_2D,
+            .format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
+            .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER,
+            .width = _instance->SHADOW_MAP_SIZE,
+            .height = _instance->SHADOW_MAP_SIZE,
+            .layer_count_or_depth = 1,
+            .num_levels = 1,
+            .sample_count = SDL_GPU_SAMPLECOUNT_1,
+            .props = 0,
+        };
+        _instance->shadow_map_dir = SDL_CreateGPUTexture(_instance->gpu, &shadow_info);
+        _instance->shadow_map_spot = SDL_CreateGPUTexture(_instance->gpu, &shadow_info);
+
+        if (_instance->shadow_map_dir == nullptr || _instance->shadow_map_spot == nullptr)
+        {
+            SDL_Log("Failed to create shadow map textures: %s", SDL_GetError());
+        }
+    }
+
+    
+    if (_instance->shadow_sampler == nullptr)
+    {
+        SDL_GPUSamplerCreateInfo shadow_sampler_info{
+            .min_filter = SDL_GPU_FILTER_LINEAR,
+            .mag_filter = SDL_GPU_FILTER_LINEAR,
+            .mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+            .address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            .address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            .address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+            .mip_lod_bias = 0.0f,
+            .max_anisotropy = 1.0f,
+            .compare_op = SDL_GPU_COMPAREOP_ALWAYS,
+            .min_lod = 0.0f,
+            .max_lod = 1.0f,
+            .enable_anisotropy = false,
+            .enable_compare = false,
+            .props = 0,
+        };
+        _instance->shadow_sampler = SDL_CreateGPUSampler(_instance->gpu, &shadow_sampler_info);
+    }
+
+    
     MatricesUBO matrices{
         .view = _instance->view_matrix,
         .proj = _instance->projection_matrix,
@@ -1483,51 +1975,64 @@ int RetroRenderer::BeginFrame()
         const auto &sl = _instance->spot_lights[i];
         glm::vec3 pos = glm::vec3(sl.position_x, sl.position_y, sl.position_z);
         glm::vec3 dir = glm::normalize(glm::vec3(sl.direction_x, sl.direction_y, sl.direction_z));
+        float cutoff_cos = std::cos(glm::radians(sl.cutoff_angle));
         lights.spot_lights[i].color_intensity = glm::vec4(
             sl.r / 255.0f,
             sl.g / 255.0f,
             sl.b / 255.0f,
             sl.intensity);
         lights.spot_lights[i].position_constant = glm::vec4(pos, sl.constant);
-        lights.spot_lights[i].direction_cutoff = glm::vec4(dir, sl.cutoff_angle);
+        lights.spot_lights[i].direction_cutoff = glm::vec4(dir, cutoff_cos);
         lights.spot_lights[i].attenuation = glm::vec4(sl.linear, sl.quadratic, 0.0f, 0.0f);
     }
 
     SDL_PushGPUVertexUniformData(_instance->frame_command_buffer, 0, &matrices, sizeof(MatricesUBO));
     SDL_PushGPUFragmentUniformData(_instance->frame_command_buffer, 0, &lights, sizeof(LightsUBO));
 
-    SDL_GPUColorTargetInfo color_target{
-        .texture = _instance->frame_swapchain_texture,
-        .mip_level = 0,
-        .layer_or_depth_plane = 0,
-        .clear_color = {0.0f, 0.0f, 0.0f, 1.0f},
-        .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op = SDL_GPU_STOREOP_STORE,
-        .resolve_texture = nullptr,
-        .resolve_mip_level = 0,
-        .resolve_layer = 0,
-        .cycle = false,
-        .cycle_resolve_texture = false,
-    };
+    bool use_deferred = (_instance->gbuffer_pipeline != nullptr &&
+                         _instance->deferred_lighting_pipeline != nullptr &&
+                         _instance->gbuffer_normal != nullptr);
 
-    SDL_GPUDepthStencilTargetInfo depth_target{
-        .texture = _instance->depth_texture,
-        .clear_depth = 1.0f,
-        .load_op = SDL_GPU_LOADOP_CLEAR,
-        .store_op = SDL_GPU_STOREOP_STORE,
-        .stencil_load_op = SDL_GPU_LOADOP_CLEAR,
-        .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
-        .cycle = false,
-        .clear_stencil = 0,
-    };
-
-    _instance->frame_render_pass = SDL_BeginGPURenderPass(_instance->frame_command_buffer, &color_target, 1, &depth_target);
-    if (_instance->frame_render_pass == nullptr)
+    if (!use_deferred)
     {
-        SDL_CancelGPUCommandBuffer(_instance->frame_command_buffer);
-        _instance->frame_command_buffer = nullptr;
-        return -5;
+        SDL_GPUColorTargetInfo color_target{
+            .texture = _instance->frame_swapchain_texture,
+            .mip_level = 0,
+            .layer_or_depth_plane = 0,
+            .clear_color = {0.0f, 0.0f, 0.0f, 1.0f},
+            .load_op = SDL_GPU_LOADOP_CLEAR,
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .resolve_texture = nullptr,
+            .resolve_mip_level = 0,
+            .resolve_layer = 0,
+            .cycle = false,
+            .cycle_resolve_texture = false,
+        };
+
+        SDL_GPUDepthStencilTargetInfo depth_target{
+            .texture = _instance->depth_texture,
+            .clear_depth = 1.0f,
+            .load_op = SDL_GPU_LOADOP_CLEAR,
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .stencil_load_op = SDL_GPU_LOADOP_CLEAR,
+            .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+            .cycle = false,
+            .clear_stencil = 0,
+        };
+
+        _instance->frame_render_pass = SDL_BeginGPURenderPass(_instance->frame_command_buffer, &color_target, 1, &depth_target);
+        if (_instance->frame_render_pass == nullptr)
+        {
+            SDL_CancelGPUCommandBuffer(_instance->frame_command_buffer);
+            _instance->frame_command_buffer = nullptr;
+            return -5;
+        }
     }
+    
+
+    ImGui_ImplSDLGPU3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
 
     _instance->frame_active = true;
     return 0;
@@ -1540,7 +2045,7 @@ int RetroRenderer::LoadTexture(char *bitmap, size_t size, int w, int h, TextureI
     const size_t expected_size = static_cast<size_t>(w) * static_cast<size_t>(h) * 4;
     if (bitmap == nullptr || size < expected_size)
     {
-        return -2; // Invalid buffer
+        return -2; 
     }
 
     const char *mode_str = (alpha_mode == OPAQUE) ? "OPAQUE" : (alpha_mode == MASK) ? "MASK"
@@ -1551,7 +2056,7 @@ int RetroRenderer::LoadTexture(char *bitmap, size_t size, int w, int h, TextureI
     SDL_GPUTexture *gpu_texture = CreateTextureFromPixels(_instance->gpu, bitmap, w, h, error_code);
     if (gpu_texture == nullptr)
     {
-        return error_code; // Texture creation failed
+        return error_code; 
     }
     TextureID id = AllocateTextureID();
     _instance->texture_cache[id] = TextureInfo{gpu_texture, alpha_mode};
@@ -1567,7 +2072,7 @@ int RetroRenderer::UnloadTexture(TextureID texture_id)
     auto it = _instance->texture_cache.find(texture_id);
     if (it == _instance->texture_cache.end())
     {
-        return -2; // Texture not found
+        return -2; 
     }
 
     if (it->second.tex)
@@ -1589,7 +2094,7 @@ int RetroRenderer::LoadCubeMapTexture(char *bitmaps[6], size_t sizes[6], int w, 
         const size_t expected_size = static_cast<size_t>(w) * static_cast<size_t>(h) * 4;
         if (bitmaps[i] == nullptr || sizes[i] < expected_size)
         {
-            return -2; // Invalid buffer
+            return -2; 
         }
     }
 
@@ -1597,7 +2102,7 @@ int RetroRenderer::LoadCubeMapTexture(char *bitmaps[6], size_t sizes[6], int w, 
     SDL_GPUTexture *gpu_texture = CreateCubeMapTextureFromPixels(_instance->gpu, bitmaps, w, h, error_code);
     if (gpu_texture == nullptr)
     {
-        return error_code; // Texture creation failed
+        return error_code; 
     }
     TextureID id = AllocateTextureID();
     _instance->texture_cache[id] = TextureInfo{gpu_texture, OPAQUE, true};
@@ -1617,7 +2122,7 @@ int RetroRenderer::LoadHDRTexture(const float *rgba, int w, int h, TextureID &ou
     if (!rgba || w <= 0 || h <= 0)
         return -2;
 
-    // 1) Créer texture GPU RGBA32F
+    
     SDL_GPUTextureCreateInfo ci{};
     ci.type = SDL_GPU_TEXTURETYPE_2D;
     ci.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
@@ -1633,7 +2138,7 @@ int RetroRenderer::LoadHDRTexture(const float *rgba, int w, int h, TextureID &ou
     if (!tex)
         return -3;
 
-    // 2) Upload direct
+    
     const Uint32 bytesPerRow = (Uint32)(w * 4 * sizeof(float));
     const size_t totalBytes = (size_t)bytesPerRow * (size_t)h;
 
@@ -1680,7 +2185,7 @@ int RetroRenderer::LoadHDRTexture(const float *rgba, int w, int h, TextureID &ou
     }
 
     SDL_GPUTextureRegion region{};
-    region.texture = tex; // target texture
+    region.texture = tex; 
     region.mip_level = 0;
     region.layer = 0;
     region.x = 0;
@@ -1701,9 +2206,9 @@ int RetroRenderer::LoadHDRTexture(const float *rgba, int w, int h, TextureID &ou
 
     SDL_EndGPUCopyPass(copy);
     SDL_ReleaseGPUTransferBuffer(_instance->gpu, transfer);
-    SDL_SubmitGPUCommandBuffer(cmd); // et/ou SDL_SubmitGPUCommandBufferAndWait si tu veux synchro ici
+    SDL_SubmitGPUCommandBuffer(cmd); 
 
-    // Cache
+    
     TextureID id = AllocateTextureID();
     _instance->texture_cache[id] = TextureInfo{tex, OPAQUE};
     out_id = id;
@@ -1715,30 +2220,30 @@ int RetroRenderer::LoadTextureFromFile(const char *filename, TextureID &out_id)
     if (_instance == nullptr)
         return -1;
 
-    // check if file exists
+    
     if (SDL_IOFromFile(filename, "rb") == nullptr)
     {
-        return -2; // File does not exist
+        return -2; 
     }
-    // get image dimensions with stbi
+    
     int width, height;
     if (stbi_info(filename, &width, &height, nullptr) == 0 || width <= 0 || height <= 0)
     {
-        return -3; // Failed to get image info
+        return -3; 
     }
 
     size_t image_size = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
     char *image_data = static_cast<char *>(SDL_malloc(image_size));
     if (image_data == nullptr)
     {
-        return -4; // Memory allocation failed
+        return -4; 
     }
     int err = 0;
     loadImageFromFile(filename, image_data, image_size, width, height);
     if (err != 0)
     {
         SDL_free(image_data);
-        return err; // Image loading failed
+        return err; 
     }
     err = LoadTexture(image_data, image_size, width, height, out_id);
     SDL_free(image_data);
@@ -1757,15 +2262,15 @@ int RetroRenderer::LoadCubeMapTextureFromFiles(const char *filenames[6], Texture
 
     for (int i = 0; i < 6; ++i)
     {
-        // check if file exists
+        
         if (SDL_IOFromFile(filenames[i], "rb") == nullptr)
         {
-            return -2; // File does not exist
+            return -2; 
         }
-        // get image dimensions with stbi
+        
         if (stbi_info(filenames[i], &widths[i], &heights[i], nullptr) == 0 || widths[i] <= 0 || heights[i] <= 0)
         {
-            return -3; // Failed to get image info
+            return -3; 
         }
         sizes[i] = static_cast<size_t>(widths[i]) * static_cast<size_t>(heights[i]) * 4;
         bitmaps[i] = static_cast<char *>(SDL_malloc(sizes[i]));
@@ -1775,7 +2280,7 @@ int RetroRenderer::LoadCubeMapTextureFromFiles(const char *filenames[6], Texture
             {
                 SDL_free(bitmaps[j]);
             }
-            return -4; // Memory allocation failed
+            return -4; 
         }
         int err = loadImageFromFile(filenames[i], bitmaps[i], sizes[i], widths[i], heights[i]);
         if (err != 0)
@@ -1784,7 +2289,7 @@ int RetroRenderer::LoadCubeMapTextureFromFiles(const char *filenames[6], Texture
             {
                 SDL_free(bitmaps[j]);
             }
-            return err; // Image loading failed
+            return err; 
         }
     }
 
@@ -1801,25 +2306,25 @@ int RetroRenderer::LoadHDRTextureFromFile(const char *filename, TextureID &out_i
     if (_instance == nullptr)
         return -1;
     if (filename == nullptr || filename[0] == '\0')
-        return -2; // Invalid filename
+        return -2; 
 
-    // Vérifie l'existence du fichier proprement (et ferme le handle !)
+    
     SDL_IOStream *io = SDL_IOFromFile(filename, "rb");
     if (io == nullptr)
-        return -3; // File does not exist / can't open
+        return -3; 
     SDL_CloseIO(io);
 
-    // Charge en float RGBA (aligned car std::vector<float>)
+    
     std::vector<float> rgba;
     int width = 0, height = 0;
-    int err = loadHDRImageFromFile(filename, rgba, width, height); // <- ta nouvelle fonction
+    int err = loadHDRImageFromFile(filename, rgba, width, height); 
     if (err != 0)
-        return -4; // Image loading failed
+        return -4; 
 
     if (width <= 0 || height <= 0 || rgba.size() != (size_t)width * (size_t)height * 4)
-        return -5; // Corrupted decode
+        return -5; 
 
-    // Upload GPU
+    
     return LoadHDRTexture(rgba.data(), width, height, out_id);
 }
 
@@ -1831,14 +2336,14 @@ int RetroRenderer::DrawSkybox(TextureID cubemap_texture)
     auto it = _instance->texture_cache.find(cubemap_texture);
     if (it == _instance->texture_cache.end())
     {
-        return -2; // Texture not found
+        return -2; 
     }
 
-    // check that texture is a cubemap
+    
     TextureInfo tex_info = it->second;
     if (!tex_info.is_cubemap)
     {
-        return -3; // Not a cubemap texture
+        return -3; 
     }
 
     _instance->skybox_cmd = SkyboxCmd{tex_info};
@@ -1853,13 +2358,13 @@ int RetroRenderer::DrawSkySphere(TextureID texture_2d)
     auto it = _instance->texture_cache.find(texture_2d);
     if (it == _instance->texture_cache.end())
     {
-        return -2; // Texture not found
+        return -2; 
     }
 
     TextureInfo tex_info = it->second;
     if (tex_info.is_cubemap)
     {
-        return -3; // Wrong texture type
+        return -3; 
     }
 
     _instance->skysphere_cmd = SkySphereCmd{tex_info};
@@ -1893,7 +2398,7 @@ int RetroRenderer::SetPointLight(PointLightInfo light_info, uint8_t index)
         return -1;
 
     if (index >= 16)
-        return -2; // Invalid index
+        return -2; 
 
     _instance->point_lights[index] = light_info;
     if (index + 1 > _instance->point_light_count)
@@ -1910,7 +2415,7 @@ int RetroRenderer::SetSpotLight(SpotLightInfo light_info, uint8_t index)
         return -1;
 
     if (index >= 16)
-        return -2; // Invalid index
+        return -2; 
 
     _instance->spot_lights[index] = light_info;
     if (index + 1 > _instance->spot_light_count)
@@ -2005,12 +2510,12 @@ int RetroRenderer::DrawTexturedTriangleArray(TexturedTriangle *triangles, size_t
     if (_instance == nullptr)
         return -1;
     if (texture == 0)
-        return -2; // Invalid texture
+        return -2; 
 
     auto it = _instance->texture_cache.find(texture);
     if (it == _instance->texture_cache.end())
     {
-        return -3; // Texture not found
+        return -3; 
     }
 
     TextureInfo tex_info = it->second;
@@ -2030,7 +2535,7 @@ int RetroRenderer::DrawIndexedTriangleArray(Vertex *vertices, size_t vertex_coun
         return -1;
 
     if (vertices == nullptr || indices == nullptr || vertex_count == 0 || index_count == 0)
-        return -2; // Invalid input
+        return -2; 
 
     const uint32_t base_vertex = static_cast<uint32_t>(_instance->indexed_color_vertices.size());
     _instance->indexed_color_vertices.insert(_instance->indexed_color_vertices.end(), vertices, vertices + vertex_count);
@@ -2041,7 +2546,7 @@ int RetroRenderer::DrawIndexedTriangleArray(Vertex *vertices, size_t vertex_coun
     {
         uint32_t idx = indices[i];
         if (idx >= vertex_count)
-            return -3; // Index out of range
+            return -3; 
         _instance->indexed_color_indices.push_back(base_vertex + idx);
     }
 
@@ -2063,12 +2568,12 @@ int RetroRenderer::DrawIndexedTexturedTriangleArray(TexturedVertex *vertices, si
         return -1;
 
     if (vertices == nullptr || indices == nullptr || vertex_count == 0 || index_count == 0 || texture == 0)
-        return -2; // Invalid input
+        return -2; 
 
     auto it = _instance->texture_cache.find(texture);
     if (it == _instance->texture_cache.end())
     {
-        return -3; // Texture not found
+        return -3; 
     }
     TextureInfo tex_info = it->second;
     const bool use_transparent = transparent || tex_info.alphaMode == BLEND;
@@ -2082,7 +2587,7 @@ int RetroRenderer::DrawIndexedTexturedTriangleArray(TexturedVertex *vertices, si
     {
         uint32_t idx = indices[i];
         if (idx >= vertex_count)
-            return -4; // Index out of range
+            return -4; 
         _instance->indexed_textured_indices.push_back(base_vertex + idx);
     }
 
@@ -2104,7 +2609,7 @@ int RetroRenderer::DrawIndexedTriangleArrayModel(Vertex *vertices, size_t vertex
         return -1;
 
     if (vertices == nullptr || indices == nullptr || vertex_count == 0 || index_count == 0 || model == nullptr)
-        return -2; // Invalid input
+        return -2; 
 
     const uint32_t base_vertex = static_cast<uint32_t>(_instance->indexed_color_vertices.size());
     _instance->indexed_color_vertices.insert(_instance->indexed_color_vertices.end(), vertices, vertices + vertex_count);
@@ -2115,7 +2620,7 @@ int RetroRenderer::DrawIndexedTriangleArrayModel(Vertex *vertices, size_t vertex
     {
         uint32_t idx = indices[i];
         if (idx >= vertex_count)
-            return -3; // Index out of range
+            return -3; 
         _instance->indexed_color_indices.push_back(base_vertex + idx);
     }
 
@@ -2137,12 +2642,12 @@ int RetroRenderer::DrawIndexedTexturedTriangleArrayModel(TexturedVertex *vertice
         return -1;
 
     if (vertices == nullptr || indices == nullptr || vertex_count == 0 || index_count == 0 || texture == 0 || model == nullptr)
-        return -2; // Invalid input
+        return -2; 
 
     auto it = _instance->texture_cache.find(texture);
     if (it == _instance->texture_cache.end())
     {
-        return -3; // Texture not found
+        return -3; 
     }
     TextureInfo tex_info = it->second;
     const bool use_transparent = transparent || tex_info.alphaMode == BLEND;
@@ -2156,7 +2661,7 @@ int RetroRenderer::DrawIndexedTexturedTriangleArrayModel(TexturedVertex *vertice
     {
         uint32_t idx = indices[i];
         if (idx >= vertex_count)
-            return -4; // Index out of range
+            return -4; 
         _instance->indexed_textured_indices.push_back(base_vertex + idx);
     }
 
@@ -2193,6 +2698,7 @@ int RetroRenderer::DrawIndexedTexturedTriangleArrayPBR(TexturedVertex *vertices,
     };
 
     TextureInfo albedo = resolve_tex(mat.albedo_texture, _instance->fallback_white_texture);
+    TextureInfo normal = resolve_tex(mat.normal_texture, _instance->fallback_normal_texture);
     TextureInfo mr = resolve_tex(mat.metallic_roughness_texture, _instance->fallback_mr_texture);
     TextureInfo ao = resolve_tex(mat.ao_texture, _instance->fallback_white_texture);
     TextureInfo emissive = resolve_tex(mat.emissive_texture, _instance->fallback_black_texture);
@@ -2206,7 +2712,7 @@ int RetroRenderer::DrawIndexedTexturedTriangleArrayPBR(TexturedVertex *vertices,
     {
         uint32_t idx = indices[i];
         if (idx >= vertex_count)
-            return -3; // Index out of range
+            return -3; 
         _instance->indexed_textured_indices.push_back(base_vertex + idx);
     }
 
@@ -2223,11 +2729,13 @@ int RetroRenderer::DrawIndexedTexturedTriangleArrayPBR(TexturedVertex *vertices,
         .has_model = true,
         .model = *model,
         .albedo = albedo,
+        .normal = normal,
         .metallic_roughness = mr,
         .ao = ao,
         .emissive = emissive,
         .factors = glm::vec4(mat.metallic_factor, mat.roughness_factor, mat.ao_factor, mat.emissive_strength),
         .flags = flags,
+        .has_normal_map = (mat.normal_texture != 0) ? 1 : 0,
     });
 
     return 0;
@@ -2276,7 +2784,7 @@ int RetroRenderer::RegisterIndexedTexturedTriangleMesh(TexturedVertex *vertices,
     auto it = _instance->texture_cache.find(texture);
     if (it == _instance->texture_cache.end())
     {
-        return -3; // Texture not found
+        return -3; 
     }
     TextureInfo tex_info = it->second;
 
@@ -2320,7 +2828,7 @@ int RetroRenderer::DrawRegisteredMesh(int handle, const glm::mat4 *model, bool t
     const bool texture_blend = mesh.textured && mesh.texture.alphaMode == BLEND;
     const bool is_transparent = transparent || texture_blend;
 
-    // If a frame is active and the draw is opaque, emit it immediately.
+    
     if (_instance->frame_active && _instance->frame_render_pass != nullptr && !is_transparent)
     {
         SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
@@ -2338,7 +2846,7 @@ int RetroRenderer::DrawRegisteredMesh(int handle, const glm::mat4 *model, bool t
 
         if (mesh.textured)
         {
-            // Select the appropriate pipeline based on alpha mode
+            
             SDL_GPUGraphicsPipeline *pipeline = mesh.texture.alphaMode == MASK
                                                     ? _instance->textured_pipeline_mask
                                                     : _instance->textured_pipeline;
@@ -2388,6 +2896,118 @@ int RetroRenderer::UnregisterMesh(int handle)
     mesh.vertex_stride = 0;
     mesh.textured = false;
     mesh.texture = TextureInfo{nullptr, OPAQUE};
+    return 0;
+}
+
+int RetroRenderer::RegisterIndexedTexturedTriangleMeshPBR(TexturedVertex *vertices, size_t vertex_count, uint32_t *indices, size_t index_count, const PBRMaterial &material_in, int &out_handle)
+{
+    if (_instance == nullptr)
+        return -1;
+    if (vertices == nullptr || indices == nullptr || vertex_count == 0 || index_count == 0)
+        return -2;
+
+    PBRMaterial mat = material_in;
+    mat.ApplyFallbacks();
+
+    auto resolve_tex = [&](TextureID id, const TextureInfo &fallback) -> TextureInfo
+    {
+        if (id == 0)
+            return fallback;
+        auto it = _instance->texture_cache.find(id);
+        if (it != _instance->texture_cache.end())
+            return it->second;
+        return fallback;
+    };
+
+    TextureInfo albedo = resolve_tex(mat.albedo_texture, _instance->fallback_white_texture);
+    TextureInfo normal = resolve_tex(mat.normal_texture, _instance->fallback_normal_texture);
+    TextureInfo mr = resolve_tex(mat.metallic_roughness_texture, _instance->fallback_mr_texture);
+    TextureInfo ao = resolve_tex(mat.ao_texture, _instance->fallback_white_texture);
+    TextureInfo emissive = resolve_tex(mat.emissive_texture, _instance->fallback_black_texture);
+
+    size_t vbytes = vertex_count * sizeof(TexturedVertex);
+    size_t ibytes = index_count * sizeof(uint32_t);
+
+    SDL_GPUBuffer *vbo = CreateAndUploadStaticBuffer(_instance->gpu, vertices, vbytes, SDL_GPU_BUFFERUSAGE_VERTEX);
+    if (vbo == nullptr)
+        return -3;
+    SDL_GPUBuffer *ibo = CreateAndUploadStaticBuffer(_instance->gpu, indices, ibytes, SDL_GPU_BUFFERUSAGE_INDEX);
+    if (ibo == nullptr)
+    {
+        SDL_ReleaseGPUBuffer(_instance->gpu, vbo);
+        return -4;
+    }
+
+    glm::ivec4 flags(
+        mat.albedo_texture != 0 ? 1 : 0,
+        mat.metallic_roughness_texture != 0 ? 1 : 0,
+        mat.ao_texture != 0 ? 1 : 0,
+        mat.emissive_texture != 0 ? 1 : 0);
+
+    StaticPBRMesh mesh;
+    mesh.vertex_buffer = vbo;
+    mesh.index_buffer = ibo;
+    mesh.index_count = static_cast<uint32_t>(index_count);
+    mesh.albedo = albedo;
+    mesh.normal = normal;
+    mesh.metallic_roughness = mr;
+    mesh.ao = ao;
+    mesh.emissive = emissive;
+    mesh.factors = glm::vec4(mat.metallic_factor, mat.roughness_factor, mat.ao_factor, mat.emissive_strength);
+    mesh.flags = flags;
+    mesh.has_normal_map = (mat.normal_texture != 0) ? 1 : 0;
+
+    _instance->static_pbr_meshes.push_back(mesh);
+    out_handle = static_cast<int>(_instance->static_pbr_meshes.size() - 1);
+    return 0;
+}
+
+int RetroRenderer::UnregisterPBRMesh(int handle)
+{
+    if (_instance == nullptr)
+        return -1;
+    if (handle < 0 || static_cast<size_t>(handle) >= _instance->static_pbr_meshes.size())
+        return -2;
+
+    auto &mesh = _instance->static_pbr_meshes[handle];
+    if (mesh.vertex_buffer)
+    {
+        SDL_ReleaseGPUBuffer(_instance->gpu, mesh.vertex_buffer);
+        mesh.vertex_buffer = nullptr;
+    }
+    if (mesh.index_buffer)
+    {
+        SDL_ReleaseGPUBuffer(_instance->gpu, mesh.index_buffer);
+        mesh.index_buffer = nullptr;
+    }
+    mesh.index_count = 0;
+    mesh.albedo = TextureInfo{nullptr, OPAQUE};
+    mesh.normal = TextureInfo{nullptr, OPAQUE};
+    mesh.metallic_roughness = TextureInfo{nullptr, OPAQUE};
+    mesh.ao = TextureInfo{nullptr, OPAQUE};
+    mesh.emissive = TextureInfo{nullptr, OPAQUE};
+    return 0;
+}
+
+int RetroRenderer::DrawRegisteredMeshPBR(int handle, const glm::mat4 *model, bool transparent)
+{
+    if (_instance == nullptr)
+        return -1;
+    if (model == nullptr || handle < 0 || static_cast<size_t>(handle) >= _instance->static_pbr_meshes.size())
+        return -2;
+
+    const auto &mesh = _instance->static_pbr_meshes[handle];
+    if (mesh.vertex_buffer == nullptr || mesh.index_buffer == nullptr || mesh.index_count == 0)
+        return -3;
+
+    const bool texture_blend = mesh.albedo.alphaMode == BLEND;
+    const bool is_transparent = transparent || texture_blend;
+
+    StaticPBRMeshCmd cmd;
+    cmd.handle = handle;
+    cmd.transparent = is_transparent;
+    cmd.model = *model;
+    _instance->static_pbr_mesh_cmds.push_back(cmd);
     return 0;
 }
 
@@ -2447,11 +3067,18 @@ int RetroRenderer::RenderFrame()
     }
 
     SDL_GPUCommandBuffer *command_buffer = _instance->frame_command_buffer;
-    SDL_GPURenderPass *render_pass = _instance->frame_render_pass;
-    if (command_buffer == nullptr || render_pass == nullptr)
-        return -6;
 
-    // Build vertex streams and draw commands
+    
+    bool has_deferred_geometry = !_instance->pbr_cmds.empty() || !_instance->static_mesh_cmds.empty() ||
+                                 !_instance->indexed_textured_cmds.empty();
+
+    
+    bool use_deferred = (_instance->gbuffer_pipeline != nullptr &&
+                         _instance->deferred_lighting_pipeline != nullptr &&
+                         _instance->gbuffer_normal != nullptr &&
+                         has_deferred_geometry);
+
+    
     struct DrawCmd
     {
         bool textured;
@@ -2507,7 +3134,7 @@ int RetroRenderer::RenderFrame()
 
     auto append_textured_group = [&](const std::vector<std::pair<TexturedTriangle, TextureInfo>> &tris, bool transparent)
     {
-        // group by texture to reduce binds
+        
         std::map<SDL_GPUTexture *, std::pair<TextureInfo, std::vector<const TexturedTriangle *>>> grouped;
         for (const auto &entry : tris)
         {
@@ -2566,7 +3193,7 @@ int RetroRenderer::RenderFrame()
     append_textured_group(_instance->textured_triangle_buffer, false);
     append_textured_group(_instance->transparent_textured_triangle_buffer, true);
 
-    // Append indexed data
+    
     std::vector<uint32_t> color_indices;
     if (!_instance->indexed_color_vertices.empty())
     {
@@ -2598,34 +3225,34 @@ int RetroRenderer::RenderFrame()
     }
     uint32_t debug_line_count = static_cast<uint32_t>(color_vertices.size()) - debug_line_start;
 
-    // Upload vertex data
+    
     if (!EnsureBufferWithUsage(_instance->gpu, _instance->color_vertex_buffer, _instance->color_vertex_buffer_size, color_vertices.size() * sizeof(Vertex), SDL_GPU_BUFFERUSAGE_VERTEX) ||
         !EnsureBufferWithUsage(_instance->gpu, _instance->textured_vertex_buffer, _instance->textured_vertex_buffer_size, textured_vertices.size() * sizeof(TexturedVertex), SDL_GPU_BUFFERUSAGE_VERTEX))
     {
         SDL_CancelGPUCommandBuffer(command_buffer);
-        return -5; // Vertex buffer allocation failed
+        return -5; 
     }
 
     if (!color_vertices.empty() && !UploadVertexData(_instance->gpu, command_buffer, _instance->color_vertex_buffer, color_vertices.data(), color_vertices.size() * sizeof(Vertex)))
     {
         SDL_CancelGPUCommandBuffer(command_buffer);
-        return -6; // Upload color vertices failed
+        return -6; 
     }
 
     if (!textured_vertices.empty() && !UploadVertexData(_instance->gpu, command_buffer, _instance->textured_vertex_buffer, textured_vertices.data(), textured_vertices.size() * sizeof(TexturedVertex)))
     {
         SDL_CancelGPUCommandBuffer(command_buffer);
-        return -7; // Upload textured vertices failed
+        return -7; 
     }
 
-    // Upload index data for indexed draws
+    
     if (!color_indices.empty())
     {
         if (!EnsureBufferWithUsage(_instance->gpu, _instance->color_index_buffer, _instance->color_index_buffer_size, color_indices.size() * sizeof(uint32_t), SDL_GPU_BUFFERUSAGE_INDEX) ||
             !UploadVertexData(_instance->gpu, command_buffer, _instance->color_index_buffer, color_indices.data(), color_indices.size() * sizeof(uint32_t)))
         {
             SDL_CancelGPUCommandBuffer(command_buffer);
-            return -6; // Upload color indices failed
+            return -6; 
         }
     }
     if (!textured_indices.empty())
@@ -2634,437 +3261,1452 @@ int RetroRenderer::RenderFrame()
             !UploadVertexData(_instance->gpu, command_buffer, _instance->textured_index_buffer, textured_indices.data(), textured_indices.size() * sizeof(uint32_t)))
         {
             SDL_CancelGPUCommandBuffer(command_buffer);
-            return -7; // Upload textured indices failed
+            return -7; 
         }
     }
 
     uint32_t draw_calls = 0;
     uint32_t triangles_drawn = 0;
 
-    // Render skybox/skysphere first as background
-    if (_instance->skysphere_cmd.texture.tex != nullptr)
+    
+    
+    
+    if (use_deferred)
     {
-        struct CameraUBO
+        
+        glm::mat4 light_view_proj_dir = glm::mat4(1.0f);
+        glm::mat4 light_view_proj_spot = glm::mat4(1.0f);
+
+        
+        
+        float shadow_ortho_size = 200.0f;
+        float shadow_near = 1.0f;
+        float shadow_far = 5000.0f; 
+
+        
+        glm::mat4 inv_view_shadow = glm::inverse(_instance->view_matrix);
+        glm::vec3 camera_pos_shadow = glm::vec3(inv_view_shadow[3]);
+
+        if (_instance->directional_light_enabled)
         {
-            glm::mat4 proj;
-            glm::mat4 view;
+            glm::vec3 light_dir = glm::normalize(glm::vec3(
+                _instance->directional_light.direction_x,
+                _instance->directional_light.direction_y,
+                _instance->directional_light.direction_z));
+
+            
+            
+            
+            float shadow_backward_offset = shadow_far * 0.3f; 
+            glm::vec3 shadow_center = camera_pos_shadow - light_dir * shadow_backward_offset;
+
+            
+            glm::vec3 light_pos = shadow_center - light_dir * (shadow_far * 0.5f);
+
+            
+            glm::vec3 up = (std::abs(light_dir.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+
+            glm::mat4 light_view = glm::lookAt(light_pos, shadow_center, up);
+            glm::mat4 light_proj = glm::ortho(-shadow_ortho_size, shadow_ortho_size,
+                                              -shadow_ortho_size, shadow_ortho_size,
+                                              shadow_near, shadow_far);
+            light_view_proj_dir = light_proj * light_view;
+        }
+
+        
+        if (_instance->spot_light_count > 0)
+        {
+            const auto &sl = _instance->spot_lights[0];
+            glm::vec3 spot_pos = glm::vec3(sl.position_x, sl.position_y, sl.position_z);
+            glm::vec3 spot_dir = glm::normalize(glm::vec3(sl.direction_x, sl.direction_y, sl.direction_z));
+
+            
+            glm::vec3 up = (std::abs(spot_dir.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+            glm::mat4 spot_view = glm::lookAt(spot_pos, spot_pos + spot_dir, up);
+
+            
+            
+            float spot_fov = glm::radians(sl.cutoff_angle * 2.0f); 
+            spot_fov = std::min(spot_fov, glm::radians(170.0f));   
+            glm::mat4 spot_proj = glm::perspective(spot_fov, 1.0f, 0.01f, 100.0f);
+            light_view_proj_spot = spot_proj * spot_view;
+        }
+
+        
+        
+        if (_instance->shadows_enabled && _instance->shadow_pipeline != nullptr &&
+            _instance->shadow_map_dir != nullptr && _instance->shadow_map_spot != nullptr)
+        {
+            struct ShadowMatrixUBO
+            {
+                glm::mat4 view;
+                glm::mat4 proj;
+                glm::mat4 model;
+                glm::mat4 normal;
+            };
+
+            
+            if (_instance->directional_light_enabled)
+            {
+                SDL_GPUDepthStencilTargetInfo shadow_depth_dir{
+                    .texture = _instance->shadow_map_dir,
+                    .clear_depth = 1.0f,
+                    .load_op = SDL_GPU_LOADOP_CLEAR,
+                    .store_op = SDL_GPU_STOREOP_STORE,
+                    .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
+                    .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+                    .cycle = false,
+                    .clear_stencil = 0,
+                };
+
+                SDL_GPURenderPass *shadow_pass_dir = SDL_BeginGPURenderPass(command_buffer, nullptr, 0, &shadow_depth_dir);
+                if (shadow_pass_dir != nullptr)
+                {
+                    SDL_GPUViewport shadow_viewport_dir = {0, 0, (float)SHADOW_MAP_SIZE, (float)SHADOW_MAP_SIZE, 0.0f, 1.0f};
+                    SDL_Rect shadow_scissor_dir = {0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE};
+                    SDL_SetGPUViewport(shadow_pass_dir, &shadow_viewport_dir);
+                    SDL_SetGPUScissor(shadow_pass_dir, &shadow_scissor_dir);
+                    SDL_BindGPUGraphicsPipeline(shadow_pass_dir, _instance->shadow_pipeline);
+                    SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+                    SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+                    SDL_BindGPUVertexBuffers(shadow_pass_dir, 0, &vb, 1);
+                    SDL_BindGPUIndexBuffer(shadow_pass_dir, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                    
+                    glm::vec3 light_dir = glm::normalize(glm::vec3(
+                        _instance->directional_light.direction_x,
+                        _instance->directional_light.direction_y,
+                        _instance->directional_light.direction_z));
+                    float shadow_backward_offset = shadow_far * 0.3f;
+                    glm::vec3 shadow_center = camera_pos_shadow - light_dir * shadow_backward_offset;
+                    glm::vec3 light_pos = shadow_center - light_dir * (shadow_far * 0.5f);
+                    glm::vec3 up = (std::abs(light_dir.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+                    glm::mat4 light_view = glm::lookAt(light_pos, shadow_center, up);
+                    glm::mat4 light_proj = glm::ortho(-shadow_ortho_size, shadow_ortho_size,
+                                                      -shadow_ortho_size, shadow_ortho_size,
+                                                      shadow_near, shadow_far);
+
+                    
+                    for (const auto &cmd : _instance->pbr_cmds)
+                    {
+                        if (cmd.transparent || cmd.albedo.alphaMode == BLEND)
+                            continue;
+                        glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                        ShadowMatrixUBO mats{light_view, light_proj, model, glm::mat4(1.0f)};
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(ShadowMatrixUBO));
+                        SDL_DrawGPUIndexedPrimitives(shadow_pass_dir, cmd.index_count, 1, cmd.first_index, 0, 0);
+                    }
+
+                    
+                    for (const auto &cmd : _instance->static_mesh_cmds)
+                    {
+                        if (cmd.handle < 0 || cmd.handle >= (int)_instance->static_meshes.size())
+                            continue;
+                        const auto &mesh = _instance->static_meshes[cmd.handle];
+                        if (mesh.texture.alphaMode == BLEND)
+                            continue;
+                        ShadowMatrixUBO mats{light_view, light_proj, cmd.model, glm::mat4(1.0f)};
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(ShadowMatrixUBO));
+                        
+                        SDL_GPUBufferBinding mesh_vb{mesh.vertex_buffer, 0};
+                        SDL_GPUBufferBinding mesh_ib{mesh.index_buffer, 0};
+                        SDL_BindGPUVertexBuffers(shadow_pass_dir, 0, &mesh_vb, 1);
+                        SDL_BindGPUIndexBuffer(shadow_pass_dir, &mesh_ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+                        SDL_DrawGPUIndexedPrimitives(shadow_pass_dir, mesh.index_count, 1, 0, 0, 0);
+                    }
+
+                    
+                    for (const auto &cmd : _instance->static_pbr_mesh_cmds)
+                    {
+                        if (cmd.handle < 0 || cmd.handle >= (int)_instance->static_pbr_meshes.size())
+                            continue;
+                        const auto &mesh = _instance->static_pbr_meshes[cmd.handle];
+                        if (mesh.albedo.alphaMode == BLEND)
+                            continue;
+                        ShadowMatrixUBO mats{light_view, light_proj, cmd.model, glm::mat4(1.0f)};
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(ShadowMatrixUBO));
+                        SDL_GPUBufferBinding mesh_vb{mesh.vertex_buffer, 0};
+                        SDL_GPUBufferBinding mesh_ib{mesh.index_buffer, 0};
+                        SDL_BindGPUVertexBuffers(shadow_pass_dir, 0, &mesh_vb, 1);
+                        SDL_BindGPUIndexBuffer(shadow_pass_dir, &mesh_ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+                        SDL_DrawGPUIndexedPrimitives(shadow_pass_dir, mesh.index_count, 1, 0, 0, 0);
+                    }
+
+                    SDL_EndGPURenderPass(shadow_pass_dir);
+                }
+            }
+
+            
+            if (_instance->spot_light_count > 0)
+            {
+                SDL_GPUDepthStencilTargetInfo shadow_depth_spot{
+                    .texture = _instance->shadow_map_spot,
+                    .clear_depth = 1.0f,
+                    .load_op = SDL_GPU_LOADOP_CLEAR,
+                    .store_op = SDL_GPU_STOREOP_STORE,
+                    .stencil_load_op = SDL_GPU_LOADOP_DONT_CARE,
+                    .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+                    .cycle = false,
+                    .clear_stencil = 0,
+                };
+
+                SDL_GPURenderPass *shadow_pass_spot = SDL_BeginGPURenderPass(command_buffer, nullptr, 0, &shadow_depth_spot);
+                if (shadow_pass_spot != nullptr)
+                {
+                    SDL_GPUViewport shadow_viewport_spot = {0, 0, (float)SHADOW_MAP_SIZE, (float)SHADOW_MAP_SIZE, 0.0f, 1.0f};
+                    SDL_Rect shadow_scissor_spot = {0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE};
+                    SDL_SetGPUViewport(shadow_pass_spot, &shadow_viewport_spot);
+                    SDL_SetGPUScissor(shadow_pass_spot, &shadow_scissor_spot);
+                    SDL_BindGPUGraphicsPipeline(shadow_pass_spot, _instance->shadow_pipeline);
+                    SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+                    SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+                    SDL_BindGPUVertexBuffers(shadow_pass_spot, 0, &vb, 1);
+                    SDL_BindGPUIndexBuffer(shadow_pass_spot, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                    const auto &sl = _instance->spot_lights[0];
+                    glm::vec3 spot_pos = glm::vec3(sl.position_x, sl.position_y, sl.position_z);
+                    glm::vec3 spot_dir = glm::normalize(glm::vec3(sl.direction_x, sl.direction_y, sl.direction_z));
+                    glm::vec3 up = (std::abs(spot_dir.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+                    glm::mat4 spot_view = glm::lookAt(spot_pos, spot_pos + spot_dir, up);
+                    float spot_fov = glm::radians(sl.cutoff_angle * 2.0f);
+                    spot_fov = std::min(spot_fov, glm::radians(170.0f));
+                    glm::mat4 spot_proj = glm::perspective(spot_fov, 1.0f, 0.1f, 50.0f);
+
+                    
+                    for (const auto &cmd : _instance->pbr_cmds)
+                    {
+                        if (cmd.transparent || cmd.albedo.alphaMode == BLEND)
+                            continue;
+                        glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                        ShadowMatrixUBO mats{spot_view, spot_proj, model, glm::mat4(1.0f)};
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(ShadowMatrixUBO));
+                        SDL_DrawGPUIndexedPrimitives(shadow_pass_spot, cmd.index_count, 1, cmd.first_index, 0, 0);
+                    }
+
+                    
+                    for (const auto &cmd : _instance->static_mesh_cmds)
+                    {
+                        if (cmd.handle < 0 || cmd.handle >= (int)_instance->static_meshes.size())
+                            continue;
+                        const auto &mesh = _instance->static_meshes[cmd.handle];
+                        if (mesh.texture.alphaMode == BLEND)
+                            continue;
+                        ShadowMatrixUBO mats{spot_view, spot_proj, cmd.model, glm::mat4(1.0f)};
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(ShadowMatrixUBO));
+                        
+                        SDL_GPUBufferBinding mesh_vb{mesh.vertex_buffer, 0};
+                        SDL_GPUBufferBinding mesh_ib{mesh.index_buffer, 0};
+                        SDL_BindGPUVertexBuffers(shadow_pass_spot, 0, &mesh_vb, 1);
+                        SDL_BindGPUIndexBuffer(shadow_pass_spot, &mesh_ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+                        SDL_DrawGPUIndexedPrimitives(shadow_pass_spot, mesh.index_count, 1, 0, 0, 0);
+                    }
+
+                    
+                    for (const auto &cmd : _instance->static_pbr_mesh_cmds)
+                    {
+                        if (cmd.handle < 0 || cmd.handle >= (int)_instance->static_pbr_meshes.size())
+                            continue;
+                        const auto &mesh = _instance->static_pbr_meshes[cmd.handle];
+                        if (mesh.albedo.alphaMode == BLEND)
+                            continue;
+                        ShadowMatrixUBO mats{spot_view, spot_proj, cmd.model, glm::mat4(1.0f)};
+                        SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(ShadowMatrixUBO));
+                        SDL_GPUBufferBinding mesh_vb{mesh.vertex_buffer, 0};
+                        SDL_GPUBufferBinding mesh_ib{mesh.index_buffer, 0};
+                        SDL_BindGPUVertexBuffers(shadow_pass_spot, 0, &mesh_vb, 1);
+                        SDL_BindGPUIndexBuffer(shadow_pass_spot, &mesh_ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+                        SDL_DrawGPUIndexedPrimitives(shadow_pass_spot, mesh.index_count, 1, 0, 0, 0);
+                    }
+
+                    SDL_EndGPURenderPass(shadow_pass_spot);
+                }
+            }
+        }
+
+        
+        
+
+        SDL_GPUColorTargetInfo gbuffer_targets[5] = {
+            {.texture = _instance->gbuffer_position, .mip_level = 0, .layer_or_depth_plane = 0, .clear_color = {0.0f, 0.0f, 0.0f, 0.0f}, .load_op = SDL_GPU_LOADOP_CLEAR, .store_op = SDL_GPU_STOREOP_STORE},
+            {.texture = _instance->gbuffer_normal, .mip_level = 0, .layer_or_depth_plane = 0, .clear_color = {0.0f, 0.0f, 0.0f, 0.0f}, .load_op = SDL_GPU_LOADOP_CLEAR, .store_op = SDL_GPU_STOREOP_STORE},
+            {.texture = _instance->gbuffer_albedo, .mip_level = 0, .layer_or_depth_plane = 0, .clear_color = {0.0f, 0.0f, 0.0f, 0.0f}, .load_op = SDL_GPU_LOADOP_CLEAR, .store_op = SDL_GPU_STOREOP_STORE},
+            {.texture = _instance->gbuffer_material, .mip_level = 0, .layer_or_depth_plane = 0, .clear_color = {0.0f, 0.0f, 0.0f, 0.0f}, .load_op = SDL_GPU_LOADOP_CLEAR, .store_op = SDL_GPU_STOREOP_STORE},
+            {.texture = _instance->gbuffer_emissive, .mip_level = 0, .layer_or_depth_plane = 0, .clear_color = {0.0f, 0.0f, 0.0f, 0.0f}, .load_op = SDL_GPU_LOADOP_CLEAR, .store_op = SDL_GPU_STOREOP_STORE},
         };
 
-        glm::mat3 rot = glm::mat3(_instance->view_matrix);
-        rot[0] = glm::normalize(rot[0]);
-        rot[1] = glm::normalize(rot[1]);
-        rot[2] = glm::normalize(rot[2]);
-        rot[2] = glm::normalize(glm::cross(rot[0], rot[1]));
-        rot[1] = glm::normalize(glm::cross(rot[2], rot[0]));
-        glm::mat4 view_no_translation = glm::mat4(rot);
-
-        CameraUBO camera_ubo{
-            .proj = _instance->projection_matrix,
-            .view = view_no_translation,
+        SDL_GPUDepthStencilTargetInfo gbuffer_depth{
+            .texture = _instance->depth_texture,
+            .clear_depth = 1.0f,
+            .load_op = SDL_GPU_LOADOP_CLEAR,
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .stencil_load_op = SDL_GPU_LOADOP_CLEAR,
+            .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+            .cycle = false,
+            .clear_stencil = 0,
         };
 
-        SDL_BindGPUGraphicsPipeline(render_pass, _instance->skysphere_pipeline);
-        SDL_PushGPUFragmentUniformData(command_buffer, 0, &camera_ubo, sizeof(CameraUBO));
+        SDL_GPURenderPass *gbuffer_pass = SDL_BeginGPURenderPass(command_buffer, gbuffer_targets, 5, &gbuffer_depth);
+        if (gbuffer_pass == nullptr)
+        {
+            SDL_Log("Failed to begin G-Buffer render pass: %s", SDL_GetError());
+            SDL_CancelGPUCommandBuffer(command_buffer);
+            return -6;
+        }
 
-        SDL_GPUTextureSamplerBinding sky_binding{
-            .texture = _instance->skysphere_cmd.texture.tex,
-            .sampler = _instance->texture_sampler,
+        
+        if (!_instance->pbr_cmds.empty())
+        {
+            SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+            SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+            SDL_BindGPUVertexBuffers(gbuffer_pass, 0, &vb, 1);
+            SDL_BindGPUIndexBuffer(gbuffer_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+            struct MaterialUBO
+            {
+                glm::vec4 factors;
+                glm::ivec4 flags;
+                glm::ivec4 flags2; 
+            };
+
+            for (const auto &cmd : _instance->pbr_cmds)
+            {
+                
+                const bool use_blend = cmd.transparent || cmd.albedo.alphaMode == BLEND;
+                if (use_blend)
+                    continue;
+
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                MaterialUBO matubo{cmd.factors, cmd.flags, glm::ivec4(cmd.has_normal_map, 0, 0, 0)};
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_PushGPUFragmentUniformData(command_buffer, 0, &matubo, sizeof(MaterialUBO));
+
+                
+                SDL_BindGPUGraphicsPipeline(gbuffer_pass, cmd.albedo.alphaMode == MASK ? _instance->gbuffer_pipeline_mask : _instance->gbuffer_pipeline);
+
+                SDL_GPUTextureSamplerBinding bindings[4]{
+                    {.texture = cmd.albedo.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.normal.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.metallic_roughness.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.emissive.tex, .sampler = _instance->texture_sampler},
+                };
+                SDL_BindGPUFragmentSamplers(gbuffer_pass, 0, bindings, 4);
+
+                SDL_DrawGPUIndexedPrimitives(gbuffer_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+        }
+
+        
+        if (!_instance->static_mesh_cmds.empty())
+        {
+            
+            struct MaterialUBO
+            {
+                glm::vec4 factors;
+                glm::ivec4 flags;
+                glm::ivec4 flags2;
+            };
+            MaterialUBO default_material{
+                glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), 
+                glm::ivec4(1, 0, 0, 0),            
+                glm::ivec4(0, 0, 0, 0)             
+            };
+
+            for (const auto &cmd : _instance->static_mesh_cmds)
+            {
+                if (cmd.handle < 0 || static_cast<size_t>(cmd.handle) >= _instance->static_meshes.size())
+                    continue;
+
+                const auto &mesh = _instance->static_meshes[cmd.handle];
+                if (!mesh.textured || mesh.texture.tex == nullptr)
+                    continue;
+
+                
+                const bool use_blend = cmd.transparent || mesh.texture.alphaMode == BLEND;
+                if (use_blend)
+                    continue;
+
+                SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
+                SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+                SDL_BindGPUVertexBuffers(gbuffer_pass, 0, &vb, 1);
+                SDL_BindGPUIndexBuffer(gbuffer_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = cmd.model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_PushGPUFragmentUniformData(command_buffer, 0, &default_material, sizeof(MaterialUBO));
+
+                
+                SDL_BindGPUGraphicsPipeline(gbuffer_pass, mesh.texture.alphaMode == MASK ? _instance->gbuffer_pipeline_mask : _instance->gbuffer_pipeline);
+
+                
+                SDL_GPUTextureSamplerBinding bindings[4]{
+                    {.texture = mesh.texture.tex, .sampler = _instance->texture_sampler},                      
+                    {.texture = _instance->fallback_black_texture.tex, .sampler = _instance->texture_sampler}, 
+                    {.texture = _instance->fallback_mr_texture.tex, .sampler = _instance->texture_sampler},    
+                    {.texture = _instance->fallback_black_texture.tex, .sampler = _instance->texture_sampler}, 
+                };
+                SDL_BindGPUFragmentSamplers(gbuffer_pass, 0, bindings, 4);
+
+                SDL_DrawGPUIndexedPrimitives(gbuffer_pass, mesh.index_count, 1, 0, 0, 0);
+                draw_calls++;
+                triangles_drawn += mesh.index_count / 3;
+            }
+        }
+
+        
+        if (!_instance->static_pbr_mesh_cmds.empty())
+        {
+            struct MaterialUBO
+            {
+                glm::vec4 factors;
+                glm::ivec4 flags;
+                glm::ivec4 flags2;
+            };
+
+            for (const auto &cmd : _instance->static_pbr_mesh_cmds)
+            {
+                if (cmd.handle < 0 || static_cast<size_t>(cmd.handle) >= _instance->static_pbr_meshes.size())
+                    continue;
+
+                const auto &mesh = _instance->static_pbr_meshes[cmd.handle];
+                if (mesh.vertex_buffer == nullptr || mesh.index_buffer == nullptr)
+                    continue;
+
+                
+                const bool use_blend = cmd.transparent || mesh.albedo.alphaMode == BLEND;
+                if (use_blend)
+                    continue;
+
+                SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
+                SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+                SDL_BindGPUVertexBuffers(gbuffer_pass, 0, &vb, 1);
+                SDL_BindGPUIndexBuffer(gbuffer_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = cmd.model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                };
+                MaterialUBO matubo{mesh.factors, mesh.flags, glm::ivec4(mesh.has_normal_map, 0, 0, 0)};
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_PushGPUFragmentUniformData(command_buffer, 0, &matubo, sizeof(MaterialUBO));
+
+                SDL_BindGPUGraphicsPipeline(gbuffer_pass, mesh.albedo.alphaMode == MASK ? _instance->gbuffer_pipeline_mask : _instance->gbuffer_pipeline);
+
+                SDL_GPUTextureSamplerBinding bindings[4]{
+                    {.texture = mesh.albedo.tex, .sampler = _instance->texture_sampler},
+                    {.texture = mesh.normal.tex, .sampler = _instance->texture_sampler},
+                    {.texture = mesh.metallic_roughness.tex, .sampler = _instance->texture_sampler},
+                    {.texture = mesh.emissive.tex, .sampler = _instance->texture_sampler},
+                };
+                SDL_BindGPUFragmentSamplers(gbuffer_pass, 0, bindings, 4);
+
+                SDL_DrawGPUIndexedPrimitives(gbuffer_pass, mesh.index_count, 1, 0, 0, 0);
+                draw_calls++;
+                triangles_drawn += mesh.index_count / 3;
+            }
+        }
+
+        
+        if (!_instance->indexed_textured_cmds.empty() && !textured_indices.empty())
+        {
+            struct MaterialUBO
+            {
+                glm::vec4 factors;
+                glm::ivec4 flags;
+                glm::ivec4 flags2;
+            };
+            MaterialUBO default_material{
+                glm::vec4(0.0f, 1.0f, 1.0f, 0.0f), 
+                glm::ivec4(1, 0, 0, 0),            
+                glm::ivec4(0, 0, 0, 0)             
+            };
+
+            SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+            SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+            SDL_BindGPUVertexBuffers(gbuffer_pass, 0, &vb, 1);
+            SDL_BindGPUIndexBuffer(gbuffer_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+            for (const auto &cmd : _instance->indexed_textured_cmds)
+            {
+                const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
+                if (use_blend)
+                    continue; 
+
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_PushGPUFragmentUniformData(command_buffer, 0, &default_material, sizeof(MaterialUBO));
+
+                SDL_BindGPUGraphicsPipeline(gbuffer_pass, cmd.texture.alphaMode == MASK ? _instance->gbuffer_pipeline_mask : _instance->gbuffer_pipeline);
+
+                SDL_GPUTextureSamplerBinding bindings[4]{
+                    {.texture = cmd.texture.tex, .sampler = _instance->texture_sampler},
+                    {.texture = _instance->fallback_black_texture.tex, .sampler = _instance->texture_sampler},
+                    {.texture = _instance->fallback_mr_texture.tex, .sampler = _instance->texture_sampler},
+                    {.texture = _instance->fallback_black_texture.tex, .sampler = _instance->texture_sampler},
+                };
+                SDL_BindGPUFragmentSamplers(gbuffer_pass, 0, bindings, 4);
+
+                SDL_DrawGPUIndexedPrimitives(gbuffer_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+        }
+
+        SDL_EndGPURenderPass(gbuffer_pass);
+
+        
+        
+
+        SDL_GPUColorTargetInfo lighting_target{
+            .texture = _instance->frame_swapchain_texture,
+            .mip_level = 0,
+            .layer_or_depth_plane = 0,
+            .clear_color = {0.0f, 0.0f, 0.0f, 1.0f},
+            .load_op = SDL_GPU_LOADOP_CLEAR,
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .resolve_texture = nullptr,
+            .resolve_mip_level = 0,
+            .resolve_layer = 0,
+            .cycle = false,
+            .cycle_resolve_texture = false,
         };
-        SDL_BindGPUFragmentSamplers(render_pass, 0, &sky_binding, 1);
-        SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
+
+        
+        SDL_GPUDepthStencilTargetInfo lighting_depth{
+            .texture = _instance->depth_texture,
+            .clear_depth = 1.0f,
+            .load_op = SDL_GPU_LOADOP_LOAD, 
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .stencil_load_op = SDL_GPU_LOADOP_LOAD,
+            .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+            .cycle = false,
+            .clear_stencil = 0,
+        };
+
+        SDL_GPURenderPass *lighting_pass = SDL_BeginGPURenderPass(command_buffer, &lighting_target, 1, &lighting_depth);
+        if (lighting_pass == nullptr)
+        {
+            SDL_Log("Failed to begin deferred lighting render pass: %s", SDL_GetError());
+            SDL_CancelGPUCommandBuffer(command_buffer);
+            return -6;
+        }
+
+        
+        LightsUBO lights{};
+        lights.ambient_light = glm::vec4(
+            _instance->ambiant_light.r / 255.0f,
+            _instance->ambiant_light.g / 255.0f,
+            _instance->ambiant_light.b / 255.0f,
+            _instance->ambiant_light.intensity);
+
+        if (_instance->directional_light_enabled)
+        {
+            glm::vec3 dir = glm::normalize(glm::vec3(
+                _instance->directional_light.direction_x,
+                _instance->directional_light.direction_y,
+                _instance->directional_light.direction_z));
+            lights.directional_color_intensity = glm::vec4(
+                _instance->directional_light.r / 255.0f,
+                _instance->directional_light.g / 255.0f,
+                _instance->directional_light.b / 255.0f,
+                _instance->directional_light.intensity);
+            lights.directional_direction = glm::vec4(dir, 0.0f);
+        }
+        lights.counts.x = _instance->directional_light_enabled ? 1 : 0;
+        lights.counts.y = _instance->point_light_count;
+        lights.counts.z = _instance->spot_light_count;
+
+        for (uint8_t i = 0; i < _instance->point_light_count; ++i)
+        {
+            const auto &pl = _instance->point_lights[i];
+            glm::vec3 pos = glm::vec3(pl.position_x, pl.position_y, pl.position_z);
+            lights.point_lights[i].color_intensity = glm::vec4(pl.r / 255.0f, pl.g / 255.0f, pl.b / 255.0f, pl.intensity);
+            lights.point_lights[i].position_constant = glm::vec4(pos, pl.constant);
+            lights.point_lights[i].attenuation = glm::vec4(pl.linear, pl.quadratic, 0.0f, 0.0f);
+        }
+        for (uint8_t i = 0; i < _instance->spot_light_count; ++i)
+        {
+            const auto &sl = _instance->spot_lights[i];
+            glm::vec3 pos = glm::vec3(sl.position_x, sl.position_y, sl.position_z);
+            glm::vec3 dir = glm::normalize(glm::vec3(sl.direction_x, sl.direction_y, sl.direction_z));
+            float cutoff_cos = std::cos(glm::radians(sl.cutoff_angle));
+            lights.spot_lights[i].color_intensity = glm::vec4(sl.r / 255.0f, sl.g / 255.0f, sl.b / 255.0f, sl.intensity);
+            lights.spot_lights[i].position_constant = glm::vec4(pos, sl.constant);
+            lights.spot_lights[i].direction_cutoff = glm::vec4(dir, cutoff_cos);
+            lights.spot_lights[i].attenuation = glm::vec4(sl.linear, sl.quadratic, 0.0f, 0.0f);
+        }
+
+        
+        glm::mat4 inv_view = glm::inverse(_instance->view_matrix);
+        glm::vec3 camera_pos = glm::vec3(inv_view[3]);
+        lights.camera_world_pos = glm::vec4(camera_pos, 1.0f);
+
+        
+        lights.light_view_proj_dir = light_view_proj_dir;
+        lights.light_view_proj_spot = light_view_proj_spot;
+        lights.counts.w = _instance->shadows_enabled ? 1 : 0;
+
+        
+        glm::mat4 view_proj = _instance->projection_matrix * _instance->view_matrix;
+        lights.inv_view_proj = glm::inverse(view_proj);
+
+        
+        
+        lights.screen_params = glm::vec4(
+            static_cast<float>(_instance->gbuffer_width),
+            static_cast<float>(_instance->gbuffer_height),
+            1.0f,   
+            5000.0f 
+        );
+
+        
+        bool use_debug_view = (_instance->debug_view_mode != DebugViewMode::Final) &&
+                              (_instance->debug_view_pipeline != nullptr);
+
+        if (use_debug_view)
+        {
+            
+            SDL_BindGPUGraphicsPipeline(lighting_pass, _instance->debug_view_pipeline);
+
+            
+            struct DebugViewUBO
+            {
+                int mode;
+                float depth_near;
+                float depth_far;
+                float padding;
+            };
+            DebugViewUBO debug_ubo{
+                .mode = static_cast<int>(_instance->debug_view_mode),
+                .depth_near = _instance->debug_depth_near,
+                .depth_far = _instance->debug_depth_far,
+                .padding = 0.0f,
+            };
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, &debug_ubo, sizeof(DebugViewUBO));
+
+            
+            SDL_GPUTextureSamplerBinding debug_bindings[6]{
+                {.texture = _instance->gbuffer_position, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_normal, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_albedo, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_material, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_emissive, .sampler = _instance->texture_sampler},
+                {.texture = _instance->depth_texture, .sampler = _instance->texture_sampler},
+            };
+            SDL_BindGPUFragmentSamplers(lighting_pass, 0, debug_bindings, 6);
+        }
+        else
+        {
+            
+            SDL_BindGPUGraphicsPipeline(lighting_pass, _instance->deferred_lighting_pipeline);
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, &lights, sizeof(LightsUBO));
+
+            
+            SDL_GPUTexture *env_tex = _instance->fallback_black_texture.tex;
+            if (_instance->skysphere_cmd.texture.tex != nullptr)
+                env_tex = _instance->skysphere_cmd.texture.tex;
+
+            
+            SDL_GPUTexture *shadow_dir_tex = _instance->shadow_map_dir ? _instance->shadow_map_dir : _instance->fallback_white_texture.tex;
+            SDL_GPUTexture *shadow_spot_tex = _instance->shadow_map_spot ? _instance->shadow_map_spot : _instance->fallback_white_texture.tex;
+
+            
+            SDL_GPUTextureSamplerBinding gbuffer_bindings[8]{
+                {.texture = _instance->gbuffer_position, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_normal, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_albedo, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_material, .sampler = _instance->texture_sampler},
+                {.texture = _instance->gbuffer_emissive, .sampler = _instance->texture_sampler},
+                {.texture = env_tex, .sampler = _instance->texture_sampler},
+                {.texture = shadow_dir_tex, .sampler = _instance->shadow_sampler},
+                {.texture = shadow_spot_tex, .sampler = _instance->shadow_sampler},
+            };
+            SDL_BindGPUFragmentSamplers(lighting_pass, 0, gbuffer_bindings, 8);
+        }
+
+        
+        SDL_DrawGPUPrimitives(lighting_pass, 3, 1, 0, 0);
         draw_calls++;
-        triangles_drawn += 1;
-    }
-    else if (_instance->skybox_cmd.cubemap_texture.tex != nullptr)
-    {
-        struct CameraUBO
-        {
-            glm::mat4 proj;
-            glm::mat4 view;
+
+        SDL_EndGPURenderPass(lighting_pass);
+
+        
+        
+
+        SDL_GPUColorTargetInfo forward_target{
+            .texture = _instance->frame_swapchain_texture,
+            .mip_level = 0,
+            .layer_or_depth_plane = 0,
+            .clear_color = {0.0f, 0.0f, 0.0f, 1.0f},
+            .load_op = SDL_GPU_LOADOP_LOAD, 
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .resolve_texture = nullptr,
+            .resolve_mip_level = 0,
+            .resolve_layer = 0,
+            .cycle = false,
+            .cycle_resolve_texture = false,
         };
 
-        glm::mat3 rot = glm::mat3(_instance->view_matrix);
-        rot[0] = glm::normalize(rot[0]);
-        rot[1] = glm::normalize(rot[1]);
-        rot[2] = glm::normalize(rot[2]);
-        rot[2] = glm::normalize(glm::cross(rot[0], rot[1]));
-        rot[1] = glm::normalize(glm::cross(rot[2], rot[0]));
-        glm::mat4 view_no_translation = glm::mat4(rot);
-
-        CameraUBO camera_ubo{
-            .proj = _instance->projection_matrix,
-            .view = view_no_translation,
+        SDL_GPUDepthStencilTargetInfo forward_depth{
+            .texture = _instance->depth_texture,
+            .clear_depth = 1.0f,
+            .load_op = SDL_GPU_LOADOP_LOAD, 
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .stencil_load_op = SDL_GPU_LOADOP_LOAD,
+            .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+            .cycle = false,
+            .clear_stencil = 0,
         };
 
-        SDL_BindGPUGraphicsPipeline(render_pass, _instance->skybox_pipeline);
-        SDL_PushGPUFragmentUniformData(command_buffer, 0, &camera_ubo, sizeof(CameraUBO));
-
-        SDL_GPUTextureSamplerBinding sky_binding{
-            .texture = _instance->skybox_cmd.cubemap_texture.tex,
-            .sampler = _instance->texture_sampler,
-        };
-        SDL_BindGPUFragmentSamplers(render_pass, 0, &sky_binding, 1);
-        SDL_DrawGPUPrimitives(render_pass, 36, 1, 0, 0);
-        draw_calls++;
-        triangles_drawn += 12;
-    }
-
-    // Opaque colored/textured first
-    if (!draw_cmds_color.empty())
-    {
-        SDL_GPUBufferBinding vb{_instance->color_vertex_buffer, 0};
-        SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-        for (const auto &cmd : draw_cmds_color)
+        SDL_GPURenderPass *forward_pass = SDL_BeginGPURenderPass(command_buffer, &forward_target, 1, &forward_depth);
+        if (forward_pass == nullptr)
         {
-            if (cmd.transparent)
-                continue;
-            SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline);
-            SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
-            draw_calls++;
-            triangles_drawn += cmd.vertex_count / 3;
+            SDL_Log("Failed to begin forward render pass: %s", SDL_GetError());
+            SDL_CancelGPUCommandBuffer(command_buffer);
+            return -6;
         }
-        for (const auto &cmd : draw_cmds_color)
-        {
-            if (!cmd.transparent)
-                continue;
-            SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline_transparent);
-            SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
-            draw_calls++;
-            triangles_drawn += cmd.vertex_count / 3;
-        }
-    }
 
-    if (!_instance->indexed_color_cmds.empty() && !color_indices.empty())
-    {
-        SDL_GPUBufferBinding vb{_instance->color_vertex_buffer, 0};
-        SDL_GPUBufferBinding ib{_instance->color_index_buffer, 0};
-        SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-        SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-        for (const auto &cmd : _instance->indexed_color_cmds)
+        
+        SDL_GPURenderPass *render_pass = forward_pass;
+
+        
+        if (_instance->skysphere_cmd.texture.tex != nullptr)
         {
-            if (cmd.transparent)
-                continue;
-            glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+            struct CameraUBO
+            {
+                glm::mat4 proj;
+                glm::mat4 view;
+            };
+
+            glm::mat3 rot = glm::mat3(_instance->view_matrix);
+            rot[0] = glm::normalize(rot[0]);
+            rot[1] = glm::normalize(rot[1]);
+            rot[2] = glm::normalize(rot[2]);
+            rot[2] = glm::normalize(glm::cross(rot[0], rot[1]));
+            rot[1] = glm::normalize(glm::cross(rot[2], rot[0]));
+            glm::mat4 view_no_translation = glm::mat4(rot);
+
+            CameraUBO camera_ubo{
+                .proj = _instance->projection_matrix,
+                .view = view_no_translation,
+            };
+
+            SDL_BindGPUGraphicsPipeline(render_pass, _instance->skysphere_pipeline);
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, &camera_ubo, sizeof(CameraUBO));
+
+            SDL_GPUTextureSamplerBinding sky_binding{
+                .texture = _instance->skysphere_cmd.texture.tex,
+                .sampler = _instance->texture_sampler,
+            };
+            SDL_BindGPUFragmentSamplers(render_pass, 0, &sky_binding, 1);
+            SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
+            draw_calls++;
+            triangles_drawn += 1;
+        }
+        else if (_instance->skybox_cmd.cubemap_texture.tex != nullptr)
+        {
+            struct CameraUBO
+            {
+                glm::mat4 proj;
+                glm::mat4 view;
+            };
+
+            glm::mat3 rot = glm::mat3(_instance->view_matrix);
+            rot[0] = glm::normalize(rot[0]);
+            rot[1] = glm::normalize(rot[1]);
+            rot[2] = glm::normalize(rot[2]);
+            rot[2] = glm::normalize(glm::cross(rot[0], rot[1]));
+            rot[1] = glm::normalize(glm::cross(rot[2], rot[0]));
+            glm::mat4 view_no_translation = glm::mat4(rot);
+
+            CameraUBO camera_ubo{
+                .proj = _instance->projection_matrix,
+                .view = view_no_translation,
+            };
+
+            SDL_BindGPUGraphicsPipeline(render_pass, _instance->skybox_pipeline);
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, &camera_ubo, sizeof(CameraUBO));
+
+            SDL_GPUTextureSamplerBinding sky_binding{
+                .texture = _instance->skybox_cmd.cubemap_texture.tex,
+                .sampler = _instance->texture_sampler,
+            };
+            SDL_BindGPUFragmentSamplers(render_pass, 0, &sky_binding, 1);
+            SDL_DrawGPUPrimitives(render_pass, 36, 1, 0, 0);
+            draw_calls++;
+            triangles_drawn += 12;
+        }
+
+        
+        if (!_instance->pbr_cmds.empty())
+        {
+            SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+            SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+            SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+            struct MaterialUBO
+            {
+                glm::vec4 factors;
+                glm::ivec4 flags;
+            };
+
+            for (const auto &cmd : _instance->pbr_cmds)
+            {
+                const bool use_blend = cmd.transparent || cmd.albedo.alphaMode == BLEND;
+                if (!use_blend)
+                    continue; 
+
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                MaterialUBO matubo{cmd.factors, cmd.flags};
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_PushGPUFragmentUniformData(command_buffer, 1, &matubo, sizeof(MaterialUBO));
+
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->pbr_pipeline_transparent);
+
+                SDL_GPUTextureSamplerBinding bindings[4]{
+                    {.texture = cmd.albedo.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.metallic_roughness.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.ao.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.emissive.tex, .sampler = _instance->texture_sampler},
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, bindings, 4);
+
+                SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+        }
+
+        
+        if (debug_line_count > 0 && _instance->line_pipeline != nullptr)
+        {
+            SDL_GPUBufferBinding vb{_instance->color_vertex_buffer, 0};
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+
             MatricesUBO mats{
                 .view = _instance->view_matrix,
                 .proj = _instance->projection_matrix,
-                .model = model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                .model = _instance->model_matrix,
+                .normal = glm::mat4(glm::transpose(glm::inverse(_instance->model_matrix))),
             };
             SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline);
-            SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+            SDL_BindGPUGraphicsPipeline(render_pass, _instance->line_pipeline);
+            SDL_DrawGPUPrimitives(render_pass, debug_line_count, 1, debug_line_start, 0);
             draw_calls++;
-            triangles_drawn += cmd.index_count / 3;
         }
-        for (const auto &cmd : _instance->indexed_color_cmds)
+
+        
+        if (!_instance->static_mesh_cmds.empty())
         {
-            if (!cmd.transparent)
-                continue;
-            glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
-            MatricesUBO mats{
-                .view = _instance->view_matrix,
-                .proj = _instance->projection_matrix,
-                .model = model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(model))),
-            };
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline_transparent);
-            SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
-            draw_calls++;
-            triangles_drawn += cmd.index_count / 3;
+            for (const auto &cmd : _instance->static_mesh_cmds)
+            {
+                if (cmd.handle < 0 || static_cast<size_t>(cmd.handle) >= _instance->static_meshes.size())
+                    continue;
+
+                const auto &mesh = _instance->static_meshes[cmd.handle];
+                if (mesh.vertex_buffer == nullptr || mesh.index_buffer == nullptr || mesh.index_count == 0)
+                    continue;
+
+                
+                const bool use_blend = cmd.transparent || (mesh.textured && mesh.texture.alphaMode == BLEND);
+                if (!use_blend)
+                    continue;
+
+                SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
+                SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+                SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+                SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = cmd.model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+
+                if (mesh.textured)
+                {
+                    SDL_BindGPUGraphicsPipeline(render_pass, _instance->textured_pipeline_transparent);
+                    SDL_GPUTextureSamplerBinding sampler_binding{
+                        .texture = mesh.texture.tex,
+                        .sampler = _instance->texture_sampler,
+                    };
+                    SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+                }
+                else
+                {
+                    SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline_transparent);
+                }
+
+                SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
+                draw_calls++;
+                triangles_drawn += mesh.index_count / 3;
+            }
         }
+
+        
+        if (!_instance->indexed_textured_cmds.empty() && !textured_indices.empty())
+        {
+            SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+            SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+            SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+            for (const auto &cmd : _instance->indexed_textured_cmds)
+            {
+                const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
+                if (!use_blend)
+                    continue; 
+
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->textured_pipeline_transparent);
+                SDL_GPUTextureSamplerBinding sampler_binding{
+                    .texture = cmd.texture.tex,
+                    .sampler = _instance->texture_sampler,
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+
+                SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+        }
+
+        SDL_EndGPURenderPass(render_pass);
     }
-
-    if (!draw_cmds_textured.empty())
+    else
     {
-        SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
-        SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-        for (const auto &cmd : draw_cmds_textured)
-        {
-            const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
-            if (use_blend)
-                continue;
-            SDL_BindGPUGraphicsPipeline(render_pass, cmd.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline);
-            SDL_GPUTextureSamplerBinding sampler_binding{
-                .texture = cmd.texture.tex,
-                .sampler = _instance->texture_sampler,
-            };
-            SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
-            SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
-            draw_calls++;
-            triangles_drawn += cmd.vertex_count / 3;
-        }
-        for (const auto &cmd : draw_cmds_textured)
-        {
-            const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
-            if (!use_blend)
-                continue;
-            SDL_BindGPUGraphicsPipeline(render_pass, _instance->textured_pipeline_transparent);
-            SDL_GPUTextureSamplerBinding sampler_binding{
-                .texture = cmd.texture.tex,
-                .sampler = _instance->texture_sampler,
-            };
-            SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
-            SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
-            draw_calls++;
-            triangles_drawn += cmd.vertex_count / 3;
-        }
-    }
+        
+        
+        
+        SDL_GPURenderPass *render_pass = _instance->frame_render_pass;
 
-    if (!_instance->indexed_textured_cmds.empty() && !textured_indices.empty())
-    {
-        std::stable_sort(_instance->indexed_textured_cmds.begin(), _instance->indexed_textured_cmds.end(), [](const IndexedCmd &a, const IndexedCmd &b)
-                         { return a.texture.tex < b.texture.tex; });
-
-        SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
-        SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
-        SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-        SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-        for (const auto &cmd : _instance->indexed_textured_cmds)
+        
+        
+        if (render_pass == nullptr)
         {
-            const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
-            if (use_blend)
-                continue;
-            glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
-            MatricesUBO mats{
-                .view = _instance->view_matrix,
+            SDL_GPUColorTargetInfo color_target{
+                .texture = _instance->frame_swapchain_texture,
+                .mip_level = 0,
+                .layer_or_depth_plane = 0,
+                .clear_color = {0.0f, 0.0f, 0.0f, 1.0f},
+                .load_op = SDL_GPU_LOADOP_CLEAR,
+                .store_op = SDL_GPU_STOREOP_STORE,
+                .resolve_texture = nullptr,
+                .resolve_mip_level = 0,
+                .resolve_layer = 0,
+                .cycle = false,
+                .cycle_resolve_texture = false,
+            };
+
+            SDL_GPUDepthStencilTargetInfo depth_target{
+                .texture = _instance->depth_texture,
+                .clear_depth = 1.0f,
+                .load_op = SDL_GPU_LOADOP_CLEAR,
+                .store_op = SDL_GPU_STOREOP_STORE,
+                .stencil_load_op = SDL_GPU_LOADOP_CLEAR,
+                .stencil_store_op = SDL_GPU_STOREOP_DONT_CARE,
+                .cycle = false,
+                .clear_stencil = 0,
+            };
+
+            render_pass = SDL_BeginGPURenderPass(command_buffer, &color_target, 1, &depth_target);
+            if (render_pass == nullptr)
+            {
+                SDL_Log("Failed to begin forward render pass: %s", SDL_GetError());
+                SDL_CancelGPUCommandBuffer(command_buffer);
+                return -6;
+            }
+        }
+
+        
+        if (_instance->skysphere_cmd.texture.tex != nullptr)
+        {
+            struct CameraUBO
+            {
+                glm::mat4 proj;
+                glm::mat4 view;
+            };
+
+            glm::mat3 rot = glm::mat3(_instance->view_matrix);
+            rot[0] = glm::normalize(rot[0]);
+            rot[1] = glm::normalize(rot[1]);
+            rot[2] = glm::normalize(rot[2]);
+            rot[2] = glm::normalize(glm::cross(rot[0], rot[1]));
+            rot[1] = glm::normalize(glm::cross(rot[2], rot[0]));
+            glm::mat4 view_no_translation = glm::mat4(rot);
+
+            CameraUBO camera_ubo{
                 .proj = _instance->projection_matrix,
-                .model = model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                .view = view_no_translation,
             };
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, cmd.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline);
-            SDL_GPUTextureSamplerBinding sampler_binding{
-                .texture = cmd.texture.tex,
+
+            SDL_BindGPUGraphicsPipeline(render_pass, _instance->skysphere_pipeline);
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, &camera_ubo, sizeof(CameraUBO));
+
+            SDL_GPUTextureSamplerBinding sky_binding{
+                .texture = _instance->skysphere_cmd.texture.tex,
                 .sampler = _instance->texture_sampler,
             };
-            SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
-            SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+            SDL_BindGPUFragmentSamplers(render_pass, 0, &sky_binding, 1);
+            SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
             draw_calls++;
-            triangles_drawn += cmd.index_count / 3;
+            triangles_drawn += 1;
         }
-        for (const auto &cmd : _instance->indexed_textured_cmds)
+        else if (_instance->skybox_cmd.cubemap_texture.tex != nullptr)
         {
-            const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
-            if (!use_blend)
-                continue;
-            glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
-            MatricesUBO mats{
-                .view = _instance->view_matrix,
+            struct CameraUBO
+            {
+                glm::mat4 proj;
+                glm::mat4 view;
+            };
+
+            glm::mat3 rot = glm::mat3(_instance->view_matrix);
+            rot[0] = glm::normalize(rot[0]);
+            rot[1] = glm::normalize(rot[1]);
+            rot[2] = glm::normalize(rot[2]);
+            rot[2] = glm::normalize(glm::cross(rot[0], rot[1]));
+            rot[1] = glm::normalize(glm::cross(rot[2], rot[0]));
+            glm::mat4 view_no_translation = glm::mat4(rot);
+
+            CameraUBO camera_ubo{
                 .proj = _instance->projection_matrix,
-                .model = model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                .view = view_no_translation,
             };
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, _instance->textured_pipeline_transparent);
-            SDL_GPUTextureSamplerBinding sampler_binding{
-                .texture = cmd.texture.tex,
+
+            SDL_BindGPUGraphicsPipeline(render_pass, _instance->skybox_pipeline);
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, &camera_ubo, sizeof(CameraUBO));
+
+            SDL_GPUTextureSamplerBinding sky_binding{
+                .texture = _instance->skybox_cmd.cubemap_texture.tex,
                 .sampler = _instance->texture_sampler,
             };
-            SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
-            SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+            SDL_BindGPUFragmentSamplers(render_pass, 0, &sky_binding, 1);
+            SDL_DrawGPUPrimitives(render_pass, 36, 1, 0, 0);
             draw_calls++;
-            triangles_drawn += cmd.index_count / 3;
+            triangles_drawn += 12;
         }
-    }
 
-    if (!_instance->static_mesh_cmds.empty())
-    {
-        std::vector<StaticMeshCmd> static_color;
-        std::vector<StaticMeshCmd> static_textured;
-        static_color.reserve(_instance->static_mesh_cmds.size());
-        static_textured.reserve(_instance->static_mesh_cmds.size());
-
-        for (const auto &cmd : _instance->static_mesh_cmds)
+        
+        if (!draw_cmds_color.empty())
         {
-            if (cmd.handle < 0 || static_cast<size_t>(cmd.handle) >= _instance->static_meshes.size())
-                continue;
-            const auto &mesh = _instance->static_meshes[cmd.handle];
-            if (mesh.textured)
-                static_textured.push_back(cmd);
-            else
-                static_color.push_back(cmd);
+            SDL_GPUBufferBinding vb{_instance->color_vertex_buffer, 0};
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+            for (const auto &cmd : draw_cmds_color)
+            {
+                if (cmd.transparent)
+                    continue;
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline);
+                SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
+                draw_calls++;
+                triangles_drawn += cmd.vertex_count / 3;
+            }
+            for (const auto &cmd : draw_cmds_color)
+            {
+                if (!cmd.transparent)
+                    continue;
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline_transparent);
+                SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
+                draw_calls++;
+                triangles_drawn += cmd.vertex_count / 3;
+            }
         }
 
-        std::stable_sort(static_textured.begin(), static_textured.end(), [&](const StaticMeshCmd &a, const StaticMeshCmd &b)
-                         {
+        if (!_instance->indexed_color_cmds.empty() && !color_indices.empty())
+        {
+            SDL_GPUBufferBinding vb{_instance->color_vertex_buffer, 0};
+            SDL_GPUBufferBinding ib{_instance->color_index_buffer, 0};
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+            SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+            for (const auto &cmd : _instance->indexed_color_cmds)
+            {
+                if (cmd.transparent)
+                    continue;
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline);
+                SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+            for (const auto &cmd : _instance->indexed_color_cmds)
+            {
+                if (!cmd.transparent)
+                    continue;
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline_transparent);
+                SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+        }
+
+        if (!draw_cmds_textured.empty())
+        {
+            SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+            for (const auto &cmd : draw_cmds_textured)
+            {
+                const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
+                if (use_blend)
+                    continue;
+                SDL_BindGPUGraphicsPipeline(render_pass, cmd.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline);
+                SDL_GPUTextureSamplerBinding sampler_binding{
+                    .texture = cmd.texture.tex,
+                    .sampler = _instance->texture_sampler,
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+                SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
+                draw_calls++;
+                triangles_drawn += cmd.vertex_count / 3;
+            }
+            for (const auto &cmd : draw_cmds_textured)
+            {
+                const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
+                if (!use_blend)
+                    continue;
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->textured_pipeline_transparent);
+                SDL_GPUTextureSamplerBinding sampler_binding{
+                    .texture = cmd.texture.tex,
+                    .sampler = _instance->texture_sampler,
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+                SDL_DrawGPUPrimitives(render_pass, cmd.vertex_count, 1, cmd.first_vertex, 0);
+                draw_calls++;
+                triangles_drawn += cmd.vertex_count / 3;
+            }
+        }
+
+        if (!_instance->indexed_textured_cmds.empty() && !textured_indices.empty())
+        {
+            std::stable_sort(_instance->indexed_textured_cmds.begin(), _instance->indexed_textured_cmds.end(), [](const IndexedCmd &a, const IndexedCmd &b)
+                             { return a.texture.tex < b.texture.tex; });
+
+            SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+            SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+            SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+            for (const auto &cmd : _instance->indexed_textured_cmds)
+            {
+                const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
+                if (use_blend)
+                    continue;
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, cmd.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline);
+                SDL_GPUTextureSamplerBinding sampler_binding{
+                    .texture = cmd.texture.tex,
+                    .sampler = _instance->texture_sampler,
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+                SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+            for (const auto &cmd : _instance->indexed_textured_cmds)
+            {
+                const bool use_blend = cmd.transparent || cmd.texture.alphaMode == BLEND;
+                if (!use_blend)
+                    continue;
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->textured_pipeline_transparent);
+                SDL_GPUTextureSamplerBinding sampler_binding{
+                    .texture = cmd.texture.tex,
+                    .sampler = _instance->texture_sampler,
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+                SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
+        }
+
+        if (!_instance->static_mesh_cmds.empty())
+        {
+            std::vector<StaticMeshCmd> static_color;
+            std::vector<StaticMeshCmd> static_textured;
+            static_color.reserve(_instance->static_mesh_cmds.size());
+            static_textured.reserve(_instance->static_mesh_cmds.size());
+
+            for (const auto &cmd : _instance->static_mesh_cmds)
+            {
+                if (cmd.handle < 0 || static_cast<size_t>(cmd.handle) >= _instance->static_meshes.size())
+                    continue;
+                const auto &mesh = _instance->static_meshes[cmd.handle];
+                if (mesh.textured)
+                    static_textured.push_back(cmd);
+                else
+                    static_color.push_back(cmd);
+            }
+
+            std::stable_sort(static_textured.begin(), static_textured.end(), [&](const StaticMeshCmd &a, const StaticMeshCmd &b)
+                             {
             const auto &ma = _instance->static_meshes[a.handle];
             const auto &mb = _instance->static_meshes[b.handle];
             return ma.texture.tex < mb.texture.tex; });
 
-        std::vector<StaticMeshCmd> static_color_opaque;
-        std::vector<StaticMeshCmd> static_color_transparent;
-        for (const auto &cmd : static_color)
-        {
-            (cmd.transparent ? static_color_transparent : static_color_opaque).push_back(cmd);
+            std::vector<StaticMeshCmd> static_color_opaque;
+            std::vector<StaticMeshCmd> static_color_transparent;
+            for (const auto &cmd : static_color)
+            {
+                (cmd.transparent ? static_color_transparent : static_color_opaque).push_back(cmd);
+            }
+
+            for (const auto &cmd : static_color_opaque)
+            {
+                const auto &mesh = _instance->static_meshes[cmd.handle];
+                SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
+                SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+                SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+                SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = cmd.model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, cmd.transparent ? _instance->color_pipeline_transparent : _instance->color_pipeline);
+                SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
+                draw_calls++;
+                triangles_drawn += mesh.index_count / 3;
+            }
+
+            for (const auto &cmd : static_color_transparent)
+            {
+                const auto &mesh = _instance->static_meshes[cmd.handle];
+                SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
+                SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+                SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+                SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = cmd.model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline_transparent);
+                SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
+                draw_calls++;
+                triangles_drawn += mesh.index_count / 3;
+            }
+
+            std::vector<StaticMeshCmd> static_textured_opaque;
+            std::vector<StaticMeshCmd> static_textured_transparent;
+            for (const auto &cmd : static_textured)
+            {
+                (cmd.transparent ? static_textured_transparent : static_textured_opaque).push_back(cmd);
+            }
+
+            for (const auto &cmd : static_textured_opaque)
+            {
+                const auto &mesh = _instance->static_meshes[cmd.handle];
+                const bool use_blend = cmd.transparent || mesh.texture.alphaMode == BLEND;
+                SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
+                SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+                SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+                SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = cmd.model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, use_blend ? _instance->textured_pipeline_transparent : (mesh.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline));
+                SDL_GPUTextureSamplerBinding sampler_binding{
+                    .texture = mesh.texture.tex,
+                    .sampler = _instance->texture_sampler,
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+                SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
+                draw_calls++;
+                triangles_drawn += mesh.index_count / 3;
+            }
+
+            for (const auto &cmd : static_textured_transparent)
+            {
+                const auto &mesh = _instance->static_meshes[cmd.handle];
+                const bool use_blend = cmd.transparent || mesh.texture.alphaMode == BLEND;
+                SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
+                SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+                SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+                SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = cmd.model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                };
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_BindGPUGraphicsPipeline(render_pass, use_blend ? _instance->textured_pipeline_transparent : (mesh.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline));
+                SDL_GPUTextureSamplerBinding sampler_binding{
+                    .texture = mesh.texture.tex,
+                    .sampler = _instance->texture_sampler,
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+                SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
+                draw_calls++;
+                triangles_drawn += mesh.index_count / 3;
+            }
         }
 
-        for (const auto &cmd : static_color_opaque)
+        if (debug_line_count > 0 && _instance->line_pipeline != nullptr)
         {
-            const auto &mesh = _instance->static_meshes[cmd.handle];
-            SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
-            SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+            SDL_GPUBufferBinding vb{_instance->color_vertex_buffer, 0};
             SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-            SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
             MatricesUBO mats{
                 .view = _instance->view_matrix,
                 .proj = _instance->projection_matrix,
-                .model = cmd.model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+                .model = _instance->model_matrix,
+                .normal = glm::mat4(glm::transpose(glm::inverse(_instance->model_matrix))),
             };
             SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, cmd.transparent ? _instance->color_pipeline_transparent : _instance->color_pipeline);
-            SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
+            SDL_BindGPUGraphicsPipeline(render_pass, _instance->line_pipeline);
+            SDL_DrawGPUPrimitives(render_pass, debug_line_count, 1, debug_line_start, 0);
             draw_calls++;
-            triangles_drawn += mesh.index_count / 3;
         }
 
-        for (const auto &cmd : static_color_transparent)
+        if (!_instance->pbr_cmds.empty())
         {
-            const auto &mesh = _instance->static_meshes[cmd.handle];
-            SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
-            SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
+            SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
+            SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
             SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
             SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
-            MatricesUBO mats{
-                .view = _instance->view_matrix,
-                .proj = _instance->projection_matrix,
-                .model = cmd.model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
+            struct MaterialUBO
+            {
+                glm::vec4 factors;
+                glm::ivec4 flags;
             };
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, _instance->color_pipeline_transparent);
-            SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
-            draw_calls++;
-            triangles_drawn += mesh.index_count / 3;
+
+            for (const auto &cmd : _instance->pbr_cmds)
+            {
+                glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
+                MatricesUBO mats{
+                    .view = _instance->view_matrix,
+                    .proj = _instance->projection_matrix,
+                    .model = model,
+                    .normal = glm::mat4(glm::transpose(glm::inverse(model))),
+                };
+                MaterialUBO matubo{cmd.factors, cmd.flags};
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
+                SDL_PushGPUFragmentUniformData(command_buffer, 1, &matubo, sizeof(MaterialUBO));
+
+                const bool use_blend = cmd.transparent || cmd.albedo.alphaMode == BLEND;
+                SDL_BindGPUGraphicsPipeline(render_pass, use_blend ? _instance->pbr_pipeline_transparent : (cmd.albedo.alphaMode == MASK ? _instance->pbr_pipeline_mask : _instance->pbr_pipeline));
+
+                SDL_GPUTextureSamplerBinding bindings[4]{
+                    {.texture = cmd.albedo.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.metallic_roughness.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.ao.tex, .sampler = _instance->texture_sampler},
+                    {.texture = cmd.emissive.tex, .sampler = _instance->texture_sampler},
+                };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, bindings, 4);
+
+                SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
+                draw_calls++;
+                triangles_drawn += cmd.index_count / 3;
+            }
         }
 
-        std::vector<StaticMeshCmd> static_textured_opaque;
-        std::vector<StaticMeshCmd> static_textured_transparent;
-        for (const auto &cmd : static_textured)
-        {
-            (cmd.transparent ? static_textured_transparent : static_textured_opaque).push_back(cmd);
-        }
-
-        for (const auto &cmd : static_textured_opaque)
-        {
-            const auto &mesh = _instance->static_meshes[cmd.handle];
-            const bool use_blend = cmd.transparent || mesh.texture.alphaMode == BLEND;
-            SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
-            SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
-            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-            SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-            MatricesUBO mats{
-                .view = _instance->view_matrix,
-                .proj = _instance->projection_matrix,
-                .model = cmd.model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
-            };
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, use_blend ? _instance->textured_pipeline_transparent : (mesh.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline));
-            SDL_GPUTextureSamplerBinding sampler_binding{
-                .texture = mesh.texture.tex,
-                .sampler = _instance->texture_sampler,
-            };
-            SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
-            SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
-            draw_calls++;
-            triangles_drawn += mesh.index_count / 3;
-        }
-
-        for (const auto &cmd : static_textured_transparent)
-        {
-            const auto &mesh = _instance->static_meshes[cmd.handle];
-            const bool use_blend = cmd.transparent || mesh.texture.alphaMode == BLEND;
-            SDL_GPUBufferBinding vb{mesh.vertex_buffer, 0};
-            SDL_GPUBufferBinding ib{mesh.index_buffer, 0};
-            SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-            SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-            MatricesUBO mats{
-                .view = _instance->view_matrix,
-                .proj = _instance->projection_matrix,
-                .model = cmd.model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(cmd.model))),
-            };
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_BindGPUGraphicsPipeline(render_pass, use_blend ? _instance->textured_pipeline_transparent : (mesh.texture.alphaMode == MASK ? _instance->textured_pipeline_mask : _instance->textured_pipeline));
-            SDL_GPUTextureSamplerBinding sampler_binding{
-                .texture = mesh.texture.tex,
-                .sampler = _instance->texture_sampler,
-            };
-            SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
-            SDL_DrawGPUIndexedPrimitives(render_pass, mesh.index_count, 1, 0, 0, 0);
-            draw_calls++;
-            triangles_drawn += mesh.index_count / 3;
-        }
+        SDL_EndGPURenderPass(render_pass);
     }
-
-    if (debug_line_count > 0 && _instance->line_pipeline != nullptr)
+    ImGui::Render();
+    ImDrawData *draw_data = ImGui::GetDrawData();
+    if (draw_data != nullptr && draw_data->TotalVtxCount > 0)
     {
-        SDL_GPUBufferBinding vb{_instance->color_vertex_buffer, 0};
-        SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
+        ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
 
-        MatricesUBO mats{
-            .view = _instance->view_matrix,
-            .proj = _instance->projection_matrix,
-            .model = _instance->model_matrix,
-            .normal = glm::mat4(glm::transpose(glm::inverse(_instance->model_matrix))),
-        };
-        SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-        SDL_BindGPUGraphicsPipeline(render_pass, _instance->line_pipeline);
-        SDL_DrawGPUPrimitives(render_pass, debug_line_count, 1, debug_line_start, 0);
-        draw_calls++;
-    }
-
-    if (!_instance->pbr_cmds.empty())
-    {
-        SDL_GPUBufferBinding vb{_instance->textured_vertex_buffer, 0};
-        SDL_GPUBufferBinding ib{_instance->textured_index_buffer, 0};
-        SDL_BindGPUVertexBuffers(render_pass, 0, &vb, 1);
-        SDL_BindGPUIndexBuffer(render_pass, &ib, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-        struct MaterialUBO
-        {
-            glm::vec4 factors;
-            glm::ivec4 flags;
+        SDL_GPUColorTargetInfo imgui_target{
+            .texture = _instance->frame_swapchain_texture,
+            .mip_level = 0,
+            .layer_or_depth_plane = 0,
+            .clear_color = {0.0f, 0.0f, 0.0f, 1.0f},
+            .load_op = SDL_GPU_LOADOP_LOAD,
+            .store_op = SDL_GPU_STOREOP_STORE,
+            .resolve_texture = nullptr,
+            .resolve_mip_level = 0,
+            .resolve_layer = 0,
+            .cycle = false,
+            .cycle_resolve_texture = false,
         };
 
-        for (const auto &cmd : _instance->pbr_cmds)
+        SDL_GPURenderPass *imgui_pass = SDL_BeginGPURenderPass(command_buffer, &imgui_target, 1, nullptr);
+        if (imgui_pass != nullptr)
         {
-            glm::mat4 model = cmd.has_model ? cmd.model : _instance->model_matrix;
-            MatricesUBO mats{
-                .view = _instance->view_matrix,
-                .proj = _instance->projection_matrix,
-                .model = model,
-                .normal = glm::mat4(glm::transpose(glm::inverse(model))),
-            };
-            MaterialUBO matubo{cmd.factors, cmd.flags};
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mats, sizeof(MatricesUBO));
-            SDL_PushGPUFragmentUniformData(command_buffer, 1, &matubo, sizeof(MaterialUBO));
-
-            const bool use_blend = cmd.transparent || cmd.albedo.alphaMode == BLEND;
-            SDL_BindGPUGraphicsPipeline(render_pass, use_blend ? _instance->pbr_pipeline_transparent : (cmd.albedo.alphaMode == MASK ? _instance->pbr_pipeline_mask : _instance->pbr_pipeline));
-
-            SDL_GPUTextureSamplerBinding bindings[4]{
-                {.texture = cmd.albedo.tex, .sampler = _instance->texture_sampler},
-                {.texture = cmd.metallic_roughness.tex, .sampler = _instance->texture_sampler},
-                {.texture = cmd.ao.tex, .sampler = _instance->texture_sampler},
-                {.texture = cmd.emissive.tex, .sampler = _instance->texture_sampler},
-            };
-            SDL_BindGPUFragmentSamplers(render_pass, 0, bindings, 4);
-
-            SDL_DrawGPUIndexedPrimitives(render_pass, cmd.index_count, 1, cmd.first_index, 0, 0);
-            draw_calls++;
-            triangles_drawn += cmd.index_count / 3;
+            ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, imgui_pass);
+            SDL_EndGPURenderPass(imgui_pass);
         }
     }
-
-    SDL_EndGPURenderPass(render_pass);
 
     SDL_SubmitGPUCommandBuffer(command_buffer);
     _instance->frame_render_pass = nullptr;
@@ -3072,7 +4714,7 @@ int RetroRenderer::RenderFrame()
     _instance->frame_swapchain_texture = nullptr;
     _instance->frame_active = false;
 
-    // Clear buffers for next frame
+    
     _instance->triangle_buffer.clear();
     _instance->transparent_triangle_buffer.clear();
     _instance->textured_triangle_buffer.clear();
@@ -3084,10 +4726,70 @@ int RetroRenderer::RenderFrame()
     _instance->indexed_color_cmds.clear();
     _instance->indexed_textured_cmds.clear();
     _instance->static_mesh_cmds.clear();
+    _instance->static_pbr_mesh_cmds.clear();
     _instance->debug_line_vertices.clear();
     _instance->pbr_cmds.clear();
     _instance->skysphere_cmd = SkySphereCmd{};
-    _instance->skybox_cmd = SkyboxCmd{}; // Reset skybox command
+    _instance->skybox_cmd = SkyboxCmd{}; 
 
     return 0;
+}
+
+void RetroRenderer::Debug_SetViewMode(DebugViewMode mode)
+{
+    if (_instance == nullptr)
+        return;
+    _instance->debug_view_mode = mode;
+}
+
+RetroRenderer::DebugViewMode RetroRenderer::Debug_GetViewMode()
+{
+    if (_instance == nullptr)
+        return DebugViewMode::Final;
+    return _instance->debug_view_mode;
+}
+
+const char *RetroRenderer::Debug_GetViewModeName(DebugViewMode mode)
+{
+    switch (mode)
+    {
+    case DebugViewMode::Final:
+        return "Final";
+    case DebugViewMode::GBufferPosition:
+        return "Position";
+    case DebugViewMode::GBufferNormal:
+        return "Normal";
+    case DebugViewMode::GBufferAlbedo:
+        return "Albedo";
+    case DebugViewMode::GBufferMaterial:
+        return "Material";
+    case DebugViewMode::GBufferEmissive:
+        return "Emissive";
+    case DebugViewMode::Depth:
+        return "Depth";
+    default:
+        return "Unknown";
+    }
+}
+
+void RetroRenderer::Debug_SetDepthRange(float near_plane, float far_plane)
+{
+    if (_instance == nullptr)
+        return;
+    _instance->debug_depth_near = near_plane;
+    _instance->debug_depth_far = far_plane;
+}
+
+void RetroRenderer::SetShadowsEnabled(bool enabled)
+{
+    if (_instance == nullptr)
+        return;
+    _instance->shadows_enabled = enabled;
+}
+
+bool RetroRenderer::GetShadowsEnabled()
+{
+    if (_instance == nullptr)
+        return false;
+    return _instance->shadows_enabled;
 }

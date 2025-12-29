@@ -44,15 +44,11 @@ void Camera::RebuildView()
     if (!_instance)
         return;
 
-    glm::vec3 f;
-    f.x = cos(glm::radians(_instance->_yawDeg)) * cos(glm::radians(_instance->_pitchDeg));
-    f.y = sin(glm::radians(_instance->_pitchDeg));
-    f.z = sin(glm::radians(_instance->_yawDeg)) * cos(glm::radians(_instance->_pitchDeg));
-    _instance->_forward = glm::normalize(f);
-
-    const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
-    _instance->_right = glm::normalize(glm::cross(_instance->_forward, worldUp));
-    _instance->_up = glm::normalize(glm::cross(_instance->_right, _instance->_forward));
+    
+    glm::mat3 rot = glm::mat3_cast(_instance->_orientation);
+    _instance->_forward = -rot[2]; 
+    _instance->_right = rot[0];    
+    _instance->_up = rot[1];       
 
     _instance->_view = glm::lookAt(_instance->_position, _instance->_position + _instance->_forward, _instance->_up);
     _instance->_dirtyView = false;
@@ -144,7 +140,11 @@ int Camera::SetYawPitchDeg(float yawDeg, float pitchDeg)
     if (!_instance)
         return -1;
     _instance->_yawDeg = yawDeg;
-    _instance->_pitchDeg = glm::clamp(pitchDeg, -89.0f, 89.0f);
+    _instance->_pitchDeg = pitchDeg;
+    
+    glm::quat qYaw = glm::angleAxis(glm::radians(yawDeg), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::quat qPitch = glm::angleAxis(glm::radians(pitchDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+    _instance->_orientation = qYaw * qPitch;
     _instance->_dirtyView = true;
     return 0;
 }
@@ -153,8 +153,14 @@ int Camera::AddYawPitchDeg(float dyaw, float dpitch)
 {
     if (!_instance)
         return -1;
-    _instance->_yawDeg += dyaw;
-    _instance->_pitchDeg = glm::clamp(_instance->_pitchDeg + dpitch, -89.0f, 89.0f);
+    
+    
+    glm::quat qYaw = glm::angleAxis(glm::radians(-dyaw), glm::vec3(0.0f, 1.0f, 0.0f));
+    
+    glm::quat qPitch = glm::angleAxis(glm::radians(dpitch), glm::vec3(1.0f, 0.0f, 0.0f));
+    
+    _instance->_orientation = _instance->_orientation * qYaw * qPitch;
+    _instance->_orientation = glm::normalize(_instance->_orientation);
     _instance->_dirtyView = true;
     return 0;
 }

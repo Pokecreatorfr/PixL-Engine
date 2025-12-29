@@ -18,14 +18,14 @@ int loadImageFromFile(const char *filename, char *data, size_t dataSize, int &wi
     unsigned char *img = stbi_load(filename, &width, &height, &n, 4);
     if (img == nullptr)
     {
-        return -1; // Failed to load image
+        return -1; 
     }
 
     size_t requiredSize = static_cast<size_t>(width) * static_cast<size_t>(height) * 4;
     if (dataSize < requiredSize)
     {
         stbi_image_free(img);
-        return -2; // Provided buffer is too small
+        return -2; 
     }
 
     memcpy(data, img, requiredSize);
@@ -36,7 +36,7 @@ int loadImageFromFile(const char *filename, char *data, size_t dataSize, int &wi
 int loadHDRImageFromFile(const char *filename, std::vector<float> &outRGBA, int &width, int &height)
 {
     int n = 0;
-    float *img = stbi_loadf(filename, &width, &height, &n, 4); // force RGBA
+    float *img = stbi_loadf(filename, &width, &height, &n, 4); 
     if (!img)
         return -1;
 
@@ -102,7 +102,7 @@ namespace
         {
             if (uri->uri.isDataUri())
             {
-                return false; // Data URIs not handled here
+                return false; 
             }
             std::filesystem::path file_path = base_dir / uri->uri.fspath();
             std::ifstream file(file_path, std::ios::binary);
@@ -119,10 +119,10 @@ namespace
                 return false;
             return true;
         }
-        // CustomBuffer or Fallback not supported
+        
         return false;
     }
-} // namespace
+} 
 
 int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimitive> &primitives)
 {
@@ -133,7 +133,7 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
     {
         auto err = data.error();
         std::cerr << "Failed to read glTF buffer at " << path << ": " << fastgltf::getErrorName(err) << " (" << static_cast<std::uint64_t>(err) << ")" << std::endl;
-        return -1; // Failed to read file
+        return -1; 
     }
 
     fastgltf::Parser parser{};
@@ -153,13 +153,13 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
     {
         auto err = assetResult.error();
         std::cerr << "Failed to load glTF (base=" << base_dir << "): " << fastgltf::getErrorName(err) << " (" << static_cast<std::uint64_t>(err) << ")" << std::endl;
-        return -2; // Failed to parse glTF
+        return -2; 
     }
 
     fastgltf::Asset asset = std::move(assetResult.get());
     if (asset.meshes.empty())
     {
-        return -3; // No mesh in file
+        return -3; 
     }
 
     struct TexData
@@ -179,7 +179,7 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
 
             const auto positionIt = primitive.findAttribute("POSITION");
             if (positionIt == primitive.attributes.end())
-                continue; // skip primitives without positions
+                continue; 
 
             const fastgltf::Accessor &positionAccessor = asset.accessors[positionIt->accessorIndex];
             std::vector<fastgltf::math::fvec3> positions(positionAccessor.count);
@@ -234,7 +234,7 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
                     break;
                 }
                 default:
-                    continue; // unsupported index format
+                    continue; 
                 }
             }
             else
@@ -256,8 +256,16 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
                 continue;
 
             std::optional<size_t> textureIndex;
+            std::optional<size_t> normalTextureIndex;
+            std::optional<size_t> mrTextureIndex;
+            std::optional<size_t> aoTextureIndex;
+            std::optional<size_t> emissiveTextureIndex;
             MaterialAlphaMode materialAlphaMode = MaterialAlphaMode::OPAQUE;
             float materialAlphaCutoff = 0.5f;
+            float metallicFactor = 1.0f;
+            float roughnessFactor = 1.0f;
+            glm::vec3 emissiveFactor{0.0f};
+
             if (primitive.materialIndex.has_value())
             {
                 const auto &mat = asset.materials[*primitive.materialIndex];
@@ -265,7 +273,26 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
                 {
                     textureIndex = mat.pbrData.baseColorTexture->textureIndex;
                 }
-                // Extract alphaMode and alphaCutoff from material
+                if (mat.normalTexture.has_value())
+                {
+                    normalTextureIndex = mat.normalTexture->textureIndex;
+                }
+                if (mat.pbrData.metallicRoughnessTexture.has_value())
+                {
+                    mrTextureIndex = mat.pbrData.metallicRoughnessTexture->textureIndex;
+                }
+                if (mat.occlusionTexture.has_value())
+                {
+                    aoTextureIndex = mat.occlusionTexture->textureIndex;
+                }
+                if (mat.emissiveTexture.has_value())
+                {
+                    emissiveTextureIndex = mat.emissiveTexture->textureIndex;
+                }
+                metallicFactor = mat.pbrData.metallicFactor;
+                roughnessFactor = mat.pbrData.roughnessFactor;
+                emissiveFactor = glm::vec3(mat.emissiveFactor[0], mat.emissiveFactor[1], mat.emissiveFactor[2]);
+
                 switch (mat.alphaMode)
                 {
                 case fastgltf::AlphaMode::Opaque:
@@ -284,6 +311,9 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
             LoadedPrimitive part;
             part.alpha_mode = materialAlphaMode;
             part.alpha_cutoff = materialAlphaCutoff;
+            part.metallic_factor = metallicFactor;
+            part.roughness_factor = roughnessFactor;
+            part.emissive_factor = emissiveFactor;
             part.vertices.resize(positions.size());
             for (size_t i = 0; i < positions.size(); ++i)
             {
@@ -352,9 +382,51 @@ int loadGltfFromFile(const std::filesystem::path &path, std::vector<LoadedPrimit
                     part.texture_pixels = it->second.pixels;
                     part.tex_w = it->second.w;
                     part.tex_h = it->second.h;
-                    part.texture_id = 0; // will be uploaded later and assigned an id
+                    part.texture_id = 0;
                 }
             }
+
+            auto loadTextureFromIndex = [&](std::optional<size_t> texIdx, std::vector<uint8_t> &outPixels, int &outW, int &outH)
+            {
+                if (!texIdx.has_value() || *texIdx >= asset.textures.size())
+                    return;
+                if (tex_cache.find(*texIdx) == tex_cache.end())
+                {
+                    const auto &tex = asset.textures[*texIdx];
+                    if (tex.imageIndex.has_value() && *tex.imageIndex < asset.images.size())
+                    {
+                        const auto &img = asset.images[*tex.imageIndex];
+                        std::vector<uint8_t> image_bytes;
+                        if (extractBufferData(img.data, asset, base_dir, image_bytes))
+                        {
+                            int w = 0, h = 0, comp = 0;
+                            unsigned char *decoded = stbi_load_from_memory(image_bytes.data(), static_cast<int>(image_bytes.size()), &w, &h, &comp, 4);
+                            if (decoded != nullptr)
+                            {
+                                size_t buf_size = static_cast<size_t>(w) * static_cast<size_t>(h) * 4;
+                                TexData t;
+                                t.pixels.assign(decoded, decoded + buf_size);
+                                t.w = w;
+                                t.h = h;
+                                tex_cache[*texIdx] = std::move(t);
+                                stbi_image_free(decoded);
+                            }
+                        }
+                    }
+                }
+                auto cacheIt = tex_cache.find(*texIdx);
+                if (cacheIt != tex_cache.end())
+                {
+                    outPixels = cacheIt->second.pixels;
+                    outW = cacheIt->second.w;
+                    outH = cacheIt->second.h;
+                }
+            };
+
+            loadTextureFromIndex(normalTextureIndex, part.normal_pixels, part.normal_w, part.normal_h);
+            loadTextureFromIndex(mrTextureIndex, part.metallic_roughness_pixels, part.mr_w, part.mr_h);
+            loadTextureFromIndex(aoTextureIndex, part.occlusion_pixels, part.ao_w, part.ao_h);
+            loadTextureFromIndex(emissiveTextureIndex, part.emissive_pixels, part.emissive_w, part.emissive_h);
 
             primitives.push_back(std::move(part));
         }

@@ -1,3 +1,5 @@
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
 #include <input_handler/input_handler.hpp>
 #include <iostream>
 
@@ -33,6 +35,8 @@ int InputHandler::Update()
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
+        ImGui_ImplSDL3_ProcessEvent(&event);
+
         if (event.type == SDL_EVENT_KEY_DOWN)
         {
             SDL_Keycode keycode = event.key.key;
@@ -77,7 +81,7 @@ int InputHandler::Bind_KeyCode(SDL_Keycode keycode, bool *state)
     bool already_bound = (keycode_bindings.find(keycode) != keycode_bindings.end());
     keycode_bindings[keycode] = state;
     if (already_bound)
-        return 1; // Keycode was already bound
+        return 1; 
     return 0;
 }
 
@@ -110,7 +114,7 @@ int InputHandler::Unbind_KeyCode(SDL_Keycode keycode)
         keycode_bindings.erase(it);
         return 0;
     }
-    return 1; // Keycode was not bound
+    return 1; 
 }
 
 int InputHandler::Unbind_QuitRequest()

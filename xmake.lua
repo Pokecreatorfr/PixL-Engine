@@ -63,6 +63,6 @@ target("PixL-Engine-example")
 
     add_includedirs("include", "example_ressources/ressource_code/include")
     add_files("src/**.cpp" , "example_ressources/ressource_code/src/**.cpp")
-    add_packages("libsdl3", "glm" , "imgui", "stb" , "fastgltf")
+    add_packages("libsdl3", "glm" , "imgui", "stb" , "fastgltf" , "imgui" ) 
 
     add_deps("shaders")

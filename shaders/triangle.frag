@@ -8,25 +8,25 @@ layout(location = 0) out vec4 out_color;
 
 struct PointLightUBO
 {
-    vec4 color_intensity;    // rgb + intensity
-    vec4 position_constant;  // xyz + constant
-    vec4 attenuation;        // linear, quadratic, _, _
+    vec4 color_intensity;    
+    vec4 position_constant;  
+    vec4 attenuation;        
 };
 
 struct SpotLightUBO
 {
-    vec4 color_intensity;    // rgb + intensity
-    vec4 position_constant;  // xyz + constant
-    vec4 direction_cutoff;   // xyz + cos(cutoff)
-    vec4 attenuation;        // linear, quadratic, _, _
+    vec4 color_intensity;    
+    vec4 position_constant;  
+    vec4 direction_cutoff;   
+    vec4 attenuation;        
 };
 
 layout(std140, set = 3, binding = 0) uniform Lights
 {
-    vec4 ambient_light;                // rgb + intensity
-    vec4 directional_color_intensity;  // rgb + intensity
-    vec4 directional_direction;        // xyz + _
-    ivec4 counts;                      // x: dir_enabled, y: point_count, z: spot_count, w: _
+    vec4 ambient_light;                
+    vec4 directional_color_intensity;  
+    vec4 directional_direction;        
+    ivec4 counts;                      
     PointLightUBO point_lights[16];
     SpotLightUBO  spot_lights[16];
 } u_lights;

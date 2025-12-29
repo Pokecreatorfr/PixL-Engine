@@ -7,11 +7,11 @@ layout(location = 3) in vec4 v_color;
 
 layout(location = 0) out vec4 out_color;
 
-// set=2: samplers (SDL_gpu)
-layout(set = 2, binding = 0) uniform sampler2D u_albedo;   // sRGB
-layout(set = 2, binding = 1) uniform sampler2D u_normal;   // linear
-layout(set = 2, binding = 2) uniform sampler2D u_orm;      // linear: R=AO, G=Rough, B=Metal
-layout(set = 2, binding = 3) uniform sampler2D u_emissive; // sRGB
+
+layout(set = 2, binding = 0) uniform sampler2D u_albedo;   
+layout(set = 2, binding = 1) uniform sampler2D u_normal;   
+layout(set = 2, binding = 2) uniform sampler2D u_orm;      
+layout(set = 2, binding = 3) uniform sampler2D u_emissive; 
 
 struct PointLightUBO {
     vec4 color_intensity;
@@ -26,17 +26,17 @@ struct SpotLightUBO {
     vec4 attenuation;
 };
 
-// set=3: fragment UBO (SDL_gpu)
+
 layout(std140, set = 3, binding = 0) uniform Lights
 {
     vec4 ambient_light;
     vec4 directional_color_intensity;
     vec4 directional_direction;
-    ivec4 counts; // x: dir_enabled, y: point_count, z: spot_count
+    ivec4 counts; 
     PointLightUBO point_lights[16];
     SpotLightUBO  spot_lights[16];
 
-    vec4 camera_world_pos; // xyz = camera position
+    vec4 camera_world_pos; 
 } L;
 
 const float PI = 3.14159265359;
@@ -73,7 +73,7 @@ float geometrySmith(vec3 N, vec3 V, vec3 Ld, float roughness)
     return geometrySchlickGGX(NdotV, roughness) * geometrySchlickGGX(NdotL, roughness);
 }
 
-// Normal mapping sans tangentes : TBN via dérivées
+
 vec3 normal_from_map(vec3 N, vec3 worldPos, vec2 uv)
 {
     vec3 tangentNormal = texture(u_normal, uv).xyz * 2.0 - 1.0;
@@ -92,9 +92,9 @@ vec3 normal_from_map(vec3 N, vec3 worldPos, vec2 uv)
 
 void main()
 {
-    // --- Textures
+    
     vec4 albedoTex = texture(u_albedo, v_uv);
-    vec3 albedo = srgb_to_linear(albedoTex.rgb) * v_color.rgb; // decode sRGB
+    vec3 albedo = srgb_to_linear(albedoTex.rgb) * v_color.rgb; 
     float alpha = albedoTex.a * v_color.a;
 
     vec3 orm = texture(u_orm, v_uv).rgb;
@@ -104,18 +104,18 @@ void main()
 
     vec3 emissive = srgb_to_linear(texture(u_emissive, v_uv).rgb);
 
-    // --- Vectors
+    
     vec3 N = normalize(v_world_norm);
     N = normal_from_map(N, v_world_pos, v_uv);
 
     vec3 V = normalize(L.camera_world_pos.xyz - v_world_pos);
 
-    // F0
+    
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
     vec3 Lo = vec3(0.0);
 
-    // Directional
+    
     if (L.counts.x != 0)
     {
         vec3 Ld = normalize(-L.directional_direction.xyz);
@@ -136,7 +136,7 @@ void main()
         Lo += (kD * albedo / PI + spec) * radiance * NdotL;
     }
 
-    // Point lights
+    
     int pcount = clamp(L.counts.y, 0, 16);
     for (int i = 0; i < pcount; ++i)
     {
@@ -166,12 +166,12 @@ void main()
         Lo += (kD * albedo / PI + spec) * radiance * NdotL * atten;
     }
 
-    // Ambient (simple)
+    
     vec3 ambient = (L.ambient_light.rgb * L.ambient_light.a) * albedo * ao;
 
     vec3 color = ambient + Lo + emissive;
 
-    // Tonemap + encode sRGB
+    
     color = color / (color + vec3(1.0));
     color = linear_to_srgb(color);
 
