@@ -1,0 +1,3 @@
+[submodule "libs/VirtuaPPU"]
+	path = libs/VirtuaPPU
+	url = https://github.com/MatheoVignaud/VirtuaPPU.git
