@@ -5,14 +5,22 @@
 #include "engine/command_parser.h"
 
 #include "SDL3/SDL.h"
-#include <stdio.h>
 
 bool isSDLInitialized = false;
+
+SDL_Window *window = NULL;
+SDL_Renderer *renderer = NULL;
+SDL_Texture *texture = NULL;
 
 int main(int argc, char *argv[])
 {
     PPUMemory *ppu = NULL;
     command_parser_parse(argc, argv);
+
+    virtuappu_reset();
+    ppu = virtuappu_get_registers();
+    ppu->frame_width = 240;
+    ppu->mode = 0;
 
     if (help_used) {
         command_parser_print_help((argc > 0) ? argv[0] : 0);
@@ -25,8 +33,26 @@ int main(int argc, char *argv[])
         }
         isSDLInitialized = true;
 
-        SDL_Window *window = SDL_CreateWindow("PixL-Engine", 640, 480, 0);
+        window = SDL_CreateWindow("PixL-Engine", 480, 360, 0);
         if (window == NULL) {
+            if (isSDLInitialized) {
+                SDL_Quit();
+            }
+            return 1;
+        }
+
+        // create SDL renderer and texture here
+        renderer = SDL_CreateRenderer(window, NULL);
+        if (renderer == NULL) {
+            if (isSDLInitialized) {
+                SDL_Quit();
+            }
+            return 1;
+        }
+
+        // create SDL texture here
+        texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, ppu->frame_width, 320);
+        if (texture == NULL) {
             if (isSDLInitialized) {
                 SDL_Quit();
             }
@@ -54,10 +80,6 @@ int main(int argc, char *argv[])
         isSDLInitialized = true;
     }
 
-    virtuappu_reset();
-    ppu = virtuappu_get_registers();
-    ppu->frame_width = 240;
-    ppu->mode = 0;
     virtuappu_render_frame();
 
     bool running = true;
@@ -72,7 +94,13 @@ int main(int argc, char *argv[])
 
 
         virtuappu_render_frame();
-        
+        // get frame_width and display the frame buffer here using SDL rendering functions
+        if (!no_display_used) {
+            SDL_UpdateTexture(texture, NULL, virtuappu_get_frame_buffer(), ppu->frame_width * sizeof(uint32_t));
+            SDL_RenderClear(renderer);
+            SDL_RenderTexture(renderer, texture, NULL, NULL);
+            SDL_RenderPresent(renderer);
+        }
     }
     
     
