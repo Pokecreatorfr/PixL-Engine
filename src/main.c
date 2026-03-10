@@ -41,7 +41,6 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        // create SDL renderer and texture here
         renderer = SDL_CreateRenderer(window, NULL);
         if (renderer == NULL) {
             if (isSDLInitialized) {
@@ -50,7 +49,6 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        // create SDL texture here
         texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, ppu->frame_width, 320);
         if (texture == NULL) {
             if (isSDLInitialized) {
@@ -93,8 +91,9 @@ int main(int argc, char *argv[])
         }
 
 
+        
+
         virtuappu_render_frame();
-        // get frame_width and display the frame buffer here using SDL rendering functions
         if (!no_display_used) {
             SDL_UpdateTexture(texture, NULL, virtuappu_get_frame_buffer(), ppu->frame_width * sizeof(uint32_t));
             SDL_RenderClear(renderer);
